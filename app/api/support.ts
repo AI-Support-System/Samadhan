@@ -65,20 +65,50 @@ export default async function handler(
     const url = `https://script.google.com/macros/s/AKfycbwyk4eS7LE-6dxDnC08ssPrGb1SEeDQC7K7TUDMuKV-7QVFuDqm04lyS4o-HnRxs0KO/exec?${params.toString()}`;
 
     // Send data to Google Sheets
-    const sheetResponse = await fetch(url);
-    
-    if (!sheetResponse.ok) {
-      throw new Error('Failed to save data to spreadsheet');
+    let sheetData;
+    try {
+      const sheetResponse = await fetch(url);
+      
+      // Check if response is successful
+      if (!sheetResponse.ok) {
+        throw new Error(`Spreadsheet returned status: ${sheetResponse.status}`);
+      }
+      
+      // Check Content-Type to handle response appropriately
+      const contentType = sheetResponse.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/json')) {
+        // Handle JSON response
+        sheetData = await sheetResponse.json();
+      } else {
+        // Handle non-JSON response (like HTML)
+        const textResponse = await sheetResponse.text();
+        sheetData = { 
+          success: true, 
+          message: 'Data saved to spreadsheet', 
+          responseType: contentType 
+        };
+        
+        // Log for debugging
+        console.log('Non-JSON response from spreadsheet:', textResponse.substring(0, 200) + '...');
+      }
+    } catch (spreadsheetError) {
+      console.error('Error communicating with spreadsheet:', spreadsheetError);
+      
+      // Continue with the response but include error information
+      sheetData = { 
+        success: false, 
+        error: spreadsheetError instanceof Error ? spreadsheetError.message : 'Unknown spreadsheet error',
+        fallback: 'Continuing with ticket creation despite spreadsheet error'
+      };
     }
 
-    const sheetData = await sheetResponse.json();
-
-    // Return success response with analysis and spreadsheet data
+    // Return success response with analysis
     return res.status(200).json({
       success: true,
       ticketId: customerId,
       analysis,
-      spreadsheetResponse: sheetData,
+      spreadsheetResponse: sheetData || { message: 'No response from spreadsheet' },
     });
   } catch (error) {
     console.error('Support API error:', error);
@@ -96,40 +126,45 @@ async function analyzeRequest(
   groqClient: Groq,
   description: string
 ): Promise<SupportAnalysis> {
-  const prompt = `
-    Analyze the following customer support request and respond ONLY with a JSON object containing these fields:
-    - category: The support category (Account, Billing, Technical, Product, Other)
-    - solveable: Either "Yes" or "No" based on if this seems like a common issue with quick resolution
-    - priority: "Low", "Medium", or "High" based on urgency
-    - department: Which department should handle this (Support, Engineering, Sales, Billing, Product)
-    - language: The detected language of the request
-
-    Customer support request: "${description}"
-
-    Response (JSON format only):
-  `;
-
-  const completion = await groqClient.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    model: "mixtral-8x7b-32768",
-    temperature: 0.1,
-    max_tokens: 500,
-  });
-
-  // Extract JSON from response
-  const responseContent = completion.choices[0]?.message?.content || '';
-  
   try {
-    // Parse JSON from the response
-    const jsonMatch = responseContent.match(/(\{[\s\S]*\})/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]) as SupportAnalysis;
-    }
+    const prompt = `
+      Analyze the following customer support request and respond ONLY with a JSON object containing these fields:
+      - category: The support category (Account, Billing, Technical, Product, Other)
+      - solveable: Either "Yes" or "No" based on if this seems like a common issue with quick resolution
+      - priority: "Low", "Medium", or "High" based on urgency
+      - department: Which department should handle this (Support, Engineering, Sales, Billing, Product)
+      - language: The detected language of the request
+
+      Customer support request: "${description}"
+
+      Response (JSON format only):
+    `;
+
+    const completion = await groqClient.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "mixtral-8x7b-32768",
+      temperature: 0.1,
+      max_tokens: 500,
+    });
+
+    // Extract JSON from response
+    const responseContent = completion.choices[0]?.message?.content || '';
     
-    throw new Error('Could not parse JSON from AI response');
-  } catch (error) {
-    console.error('Failed to parse AI analysis:', error);
-    // Return default values if parsing fails
+    try {
+      // Parse JSON from the response
+      const jsonMatch = responseContent.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]) as SupportAnalysis;
+      }
+      
+      throw new Error('Could not parse JSON from AI response');
+    } catch (parseError) {
+      console.error('Failed to parse AI analysis:', parseError);
+      throw new Error('AI response parsing failed');
+    }
+  } catch (groqError) {
+    console.error('Error with Groq AI service:', groqError);
+    // Return default values if AI analysis fails
     return {
       category: 'Other',
       solveable: 'No',
