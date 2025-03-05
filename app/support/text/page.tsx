@@ -2,17 +2,18 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { submitSupportRequest, SupportRequest, SupportResponse } from '@/app/api/support'; // Adjust path as needed
 
 export default function SupportFormPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SupportRequest>({
     name: '',
     email: '',
     subject: '',
     description: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [response, setResponse] = useState<any>(null);
+  const [response, setResponse] = useState<SupportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -26,29 +27,21 @@ export default function SupportFormPage() {
     setError(null);
     
     try {
-      const res = await fetch('/api/support', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-      
-      const data = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit support request');
+      const result = await submitSupportRequest(formData);
+
+      if (result.success) {
+        setResponse(result);
+        
+        // Clear form after successful submission
+        setFormData({
+          name: '',
+          email: '',
+          subject: '',
+          description: ''
+        });
+      } else {
+        throw new Error(result.analysis?.solution || 'Failed to submit support request');
       }
-      
-      setResponse(data);
-      
-      // Clear form after successful submission
-      setFormData({
-        name: '',
-        email: '',
-        subject: '',
-        description: ''
-      });
       
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
@@ -66,22 +59,44 @@ export default function SupportFormPage() {
       <h1 className="text-3xl font-bold mb-8 text-black">Submit a Support Request</h1>
       
       {response ? (
-        <div className="w-full max-w-md bg-white border-2 border-black p-6">
+        <div className="w-full max-w-2xl bg-white border-2 border-black p-6">
           <h2 className="text-xl font-bold mb-4 text-black">Request Submitted</h2>
-          <p className="mb-2"><strong>Ticket ID:</strong> {response.ticketId}</p>
-          <p className="mb-2"><strong>Category:</strong> {response.analysis.category}</p>
-          <p className="mb-2"><strong>Priority:</strong> {response.analysis.priority}</p>
-          <p className="mb-2"><strong>Department:</strong> {response.analysis.department}</p>
-          <p className="mb-6"><strong>Solveable:</strong> {response.analysis.solveable}</p>
           
-          <p className="mb-4">Thank you for your submission. Our team will get back to you shortly.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="font-semibold text-black mb-2">Ticket Details</h3>
+              <div className="space-y-1">
+                <p><strong>Ticket ID:</strong> {response.ticketId}</p>
+                <p><strong>Category:</strong> {response.analysis?.category}</p>
+                <p><strong>Priority:</strong> {response.analysis?.priority}</p>
+                <p><strong>Department:</strong> {response.analysis?.department}</p>
+                <p><strong>Solveable:</strong> {response.analysis?.solveable}</p>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold text-black mb-2">Your Original Message</h3>
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded">
+                <p className="text-sm text-gray-700">{formData.description}</p>
+              </div>
+            </div>
+          </div>
           
-          <button
-            onClick={handleBackToHome}
-            className="w-full py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
-          >
-            Back to Support Options
-          </button>
+          <div className="mb-6">
+            <h3 className="font-semibold text-black mb-2">Our Solution</h3>
+            <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
+              <p className="text-sm text-gray-700">{response.analysis?.solution}</p>
+            </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <button
+              onClick={handleBackToHome}
+              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
+            >
+              Back to Support Options
+            </button>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="w-full max-w-md bg-white border-2 border-black p-6">

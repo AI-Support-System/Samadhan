@@ -1,176 +1,206 @@
-// pages/api/support.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { Groq } from 'groq-sdk';
 
-type SupportRequest = {
+export type SupportRequest = {
   name: string;
   email: string;
-  subject: string;
+  subject?: string;
   description: string;
 };
 
-type SupportAnalysis = {
+export type SupportAnalysis = {
   category: string;
   solveable: 'Yes' | 'No';
   priority: 'Low' | 'Medium' | 'High';
   department: string;
   language: string;
+  solution: string;
 };
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // Only allow POST requests
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+export type SupportResponse = {
+  success: boolean;
+  ticketId?: string;
+  analysis?: SupportAnalysis;
+};
+
+export async function submitSupportRequest(
+  request: SupportRequest, 
+  groqApiKey?: string,
+  appsheetWebhookUrl?: string
+): Promise<SupportResponse> {
+  // Validate required fields
+  if (!request.name || !request.email || !request.description) {
+    return { 
+      success: false, 
+      analysis: {
+        category: 'Validation',
+        solveable: 'No',
+        priority: 'Low',
+        department: 'Support',
+        language: 'English',
+        solution: 'Missing required fields. Please provide name, email, and description.'
+      }
+    };
+  }
+
+  // Use provided API key or environment variable
+  const apiKey = groqApiKey || process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return { 
+      success: false, 
+      analysis: {
+        category: 'Configuration',
+        solveable: 'No',
+        priority: 'High',
+        department: 'IT',
+        language: 'English',
+        solution: 'Server configuration error. Please contact system administrator.'
+      }
+    };
   }
 
   try {
-    // Extract data from the request body
-    const { name, email, subject, description }: SupportRequest = req.body;
+    // Initialize Groq client
+    const groq = new Groq({ apiKey });
 
-    // Validate required fields
-    if (!name || !email || !description) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
+    // Analyze the support request
+    const analysis = await analyzeRequestWithGroq(groq, request.description);
 
-    // Initialize Groq client with API key from environment variables
-    const groq = new Groq({
-      apiKey: process.env.GROQ_API_KEY as string,
-    });
+    // Generate unique ticket ID
+    const ticketId = `C${Date.now().toString().slice(-6)}`;
 
-    // Analyze the support request using Groq AI
-    const analysis = await analyzeRequest(groq, description);
-
-    // Generate a unique customer ID
-    const customerId = `C${Date.now().toString().slice(-6)}`;
-
-    // Prepare data for the spreadsheet
-    const params = new URLSearchParams({
-      customerId,
-      name,
+    // Prepare payload for external system
+    const appsheetPayload = {
+      customerId: ticketId,
+      ...request,
       channel: 'Web Form',
-      subject: subject || 'Support Request',
-      description,
-      category: analysis.category,
-      solveable: analysis.solveable,
-      priority: analysis.priority,
-      department: analysis.department,
-      language: analysis.language,
-      email,
-    });
+      subject: request.subject || 'Support Request',
+      ...analysis
+    };
 
-    // URL for the Google Apps Script web app
-    const url = `https://script.google.com/macros/s/AKfycbwyk4eS7LE-6dxDnC08ssPrGb1SEeDQC7K7TUDMuKV-7QVFuDqm04lyS4o-HnRxs0KO/exec?${params.toString()}`;
-
-    // Send data to Google Sheets
-    let sheetData;
-    try {
-      const sheetResponse = await fetch(url);
-      
-      // Check if response is successful
-      if (!sheetResponse.ok) {
-        throw new Error(`Spreadsheet returned status: ${sheetResponse.status}`);
-      }
-      
-      // Check Content-Type to handle response appropriately
-      const contentType = sheetResponse.headers.get('content-type');
-      
-      if (contentType && contentType.includes('application/json')) {
-        // Handle JSON response
-        sheetData = await sheetResponse.json();
-      } else {
-        // Handle non-JSON response (like HTML)
-        const textResponse = await sheetResponse.text();
-        sheetData = { 
-          success: true, 
-          message: 'Data saved to spreadsheet', 
-          responseType: contentType 
-        };
-        
-        // Log for debugging
-        console.log('Non-JSON response from spreadsheet:', textResponse.substring(0, 200) + '...');
-      }
-    } catch (spreadsheetError) {
-      console.error('Error communicating with spreadsheet:', spreadsheetError);
-      
-      // Continue with the response but include error information
-      sheetData = { 
-        success: false, 
-        error: spreadsheetError instanceof Error ? spreadsheetError.message : 'Unknown spreadsheet error',
-        fallback: 'Continuing with ticket creation despite spreadsheet error'
-      };
+    // Optional: Send to external tracking system if webhook URL is provided
+    if (appsheetWebhookUrl || process.env.APPSHEET_WEBHOOK_URL) {
+      await sendToAppSheet(
+        appsheetPayload, 
+        appsheetWebhookUrl || process.env.APPSHEET_WEBHOOK_URL
+      );
     }
 
-    // Return success response with analysis
-    return res.status(200).json({
+    return {
       success: true,
-      ticketId: customerId,
-      analysis,
-      spreadsheetResponse: sheetData || { message: 'No response from spreadsheet' },
-    });
+      ticketId,
+      analysis
+    };
+
   } catch (error) {
-    console.error('Support API error:', error);
-    return res.status(500).json({
-      error: 'Failed to process support request',
-      details: error instanceof Error ? error.message : 'Unknown error',
-    });
+    console.error('Support Request Error:', error);
+    
+    return {
+      success: false,
+      analysis: {
+        category: 'Other',
+        solveable: 'No',
+        priority: 'Medium',
+        department: 'Support',
+        language: 'English',
+        solution: 'We are currently experiencing technical difficulties. Our support team will review your request and contact you shortly.'
+      }
+    };
   }
 }
 
-/**
- * Analyzes a support request description using Groq AI
- */
-async function analyzeRequest(
-  groqClient: Groq,
+async function analyzeRequestWithGroq(
+  groqClient: Groq, 
   description: string
 ): Promise<SupportAnalysis> {
+  const systemPrompt = `
+    You are an advanced AI support resolution system. Your goal is to provide clear, actionable solutions to user problems.
+
+    Analyze the support request and provide:
+    1. Precise issue categorization
+    2. Solvability assessment
+    3. Priority level
+    4. Appropriate department
+    5. Comprehensive solution
+
+    Respond in strict JSON format:
+    {
+      "category": "Specific issue category",
+      "solveable": "Yes or No",
+      "priority": "Low, Medium, or High",
+      "department": "Responsible support department",
+      "language": "Detected description language",
+      "solution": "Detailed, step-by-step resolution instructions"
+    }
+  `;
+
   try {
-    const prompt = `
-      Analyze the following customer support request and respond ONLY with a JSON object containing these fields:
-      - category: The support category (Account, Billing, Technical, Product, Other)
-      - solveable: Either "Yes" or "No" based on if this seems like a common issue with quick resolution
-      - priority: "Low", "Medium", or "High" based on urgency
-      - department: Which department should handle this (Support, Engineering, Sales, Billing, Product)
-      - language: The detected language of the request
-
-      Customer support request: "${description}"
-
-      Response (JSON format only):
-    `;
-
     const completion = await groqClient.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: description }
+      ],
       model: "mixtral-8x7b-32768",
-      temperature: 0.1,
-      max_tokens: 500,
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      max_tokens: 1000
     });
 
-    // Extract JSON from response
-    const responseContent = completion.choices[0]?.message?.content || '';
+    const responseContent = completion.choices[0]?.message?.content;
+    if (!responseContent) throw new Error('No response from Groq API');
+
+    const analysis = JSON.parse(responseContent) as SupportAnalysis;
     
-    try {
-      // Parse JSON from the response
-      const jsonMatch = responseContent.match(/(\{[\s\S]*\})/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as SupportAnalysis;
+    // Validate required fields
+    const requiredFields: (keyof SupportAnalysis)[] = [
+      'category', 'solveable', 'priority', 'department', 
+      'language', 'solution'
+    ];
+    
+    for (const field of requiredFields) {
+      if (!analysis[field]) {
+        throw new Error(`Missing required field in analysis: ${field}`);
       }
-      
-      throw new Error('Could not parse JSON from AI response');
-    } catch (parseError) {
-      console.error('Failed to parse AI analysis:', parseError);
-      throw new Error('AI response parsing failed');
     }
-  } catch (groqError) {
-    console.error('Error with Groq AI service:', groqError);
-    // Return default values if AI analysis fails
+
+    return analysis;
+
+  } catch (error) {
+    console.error('Analysis error:', error);
     return {
       category: 'Other',
       solveable: 'No',
       priority: 'Medium',
       department: 'Support',
       language: 'English',
+      solution: 'We are unable to automatically resolve this issue. Our support team will review your ticket and contact you shortly.'
+    };
+  }
+}
+
+async function sendToAppSheet(
+  payload: Record<string, any>, 
+  scriptUrl: string | undefined
+) {
+  if (!scriptUrl) return;
+
+  try {
+    const response = await fetch(scriptUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`AppSheet returned ${response.status}: ${await response.text()}`);
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error('AppSheet integration error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
