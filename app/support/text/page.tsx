@@ -2,19 +2,21 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { submitSupportRequest, SupportRequest, SupportResponse } from '@/app/api/support'; // Adjust path as needed
+import { submitSupportRequest, SupportRequest, SupportResponse } from '@/app/api/text-support';
 
 export default function SupportFormPage() {
   const router = useRouter();
   const [formData, setFormData] = useState<SupportRequest>({
     name: '',
     email: '',
+    phone: '',
     subject: '',
     description: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [response, setResponse] = useState<SupportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSubmittedData, setLastSubmittedData] = useState<SupportRequest | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -26,6 +28,10 @@ export default function SupportFormPage() {
     setIsSubmitting(true);
     setError(null);
     
+    // Store a copy of the current form data before submission
+    const currentSubmission = { ...formData };
+    setLastSubmittedData(currentSubmission);
+    
     try {
       const result = await submitSupportRequest(formData);
 
@@ -36,11 +42,12 @@ export default function SupportFormPage() {
         setFormData({
           name: '',
           email: '',
+          phone: '',
           subject: '',
           description: ''
         });
       } else {
-        throw new Error(result.analysis?.solution || 'Failed to submit support request');
+        throw new Error(result.error || result.analysis?.solution || 'Failed to submit support request');
       }
       
     } catch (err) {
@@ -54,38 +61,62 @@ export default function SupportFormPage() {
     router.push('/support');
   };
 
+  // Use this function to safely get request data (either from response or lastSubmittedData)
+  const getRequestData = () => {
+    if (response?.requestData) {
+      return response.requestData;
+    }
+    return lastSubmittedData || formData;
+  };
+
+  // Get the request data safely
+  const requestData = getRequestData();
+
   return (
     <div className="min-h-screen bg-white p-6 flex flex-col items-center">
       <h1 className="text-3xl font-bold mb-8 text-black">Submit a Support Request</h1>
       
       {response ? (
         <div className="w-full max-w-2xl bg-white border-2 border-black p-6">
-          <h2 className="text-xl font-bold mb-4 text-black">Request Submitted</h2>
+          <h2 className="text-xl font-bold mb-4 text-black">Request Submitted Successfully</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <h3 className="font-semibold text-black mb-2">Ticket Details</h3>
-              <div className="space-y-1">
-                <p><strong>Ticket ID:</strong> {response.ticketId}</p>
-                <p><strong>Category:</strong> {response.analysis?.category}</p>
-                <p><strong>Priority:</strong> {response.analysis?.priority}</p>
-                <p><strong>Department:</strong> {response.analysis?.department}</p>
-                <p><strong>Solveable:</strong> {response.analysis?.solveable}</p>
-              </div>
-            </div>
-            
-            <div>
-              <h3 className="font-semibold text-black mb-2">Your Original Message</h3>
-              <div className="p-3 bg-gray-50 border border-gray-200 rounded">
-                <p className="text-sm text-gray-700">{formData.description}</p>
-              </div>
+          <div className="mb-6">
+            <h3 className="font-semibold text-black mb-2">Ticket Information</h3>
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded mb-4">
+              <p className="text-black"><strong>Ticket ID:</strong> {response.ticketId}</p>
             </div>
           </div>
           
           <div className="mb-6">
-            <h3 className="font-semibold text-black mb-2">Our Solution</h3>
+            <h3 className="font-semibold text-black mb-2">Your Request Details</h3>
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded mb-4">
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <p className="text-black"><strong>Name:</strong> {requestData.name}</p>
+                <p className="text-black"><strong>Email:</strong> {requestData.email}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <p className="text-black"><strong>Phone:</strong> {requestData.phone || 'Not provided'}</p>
+                <p className="text-black"><strong>Subject:</strong> {requestData.subject || 'Not provided'}</p>
+              </div>
+              <p className="text-black"><strong>Description:</strong></p>
+              <p className="text-black mt-2 p-2 bg-white border border-gray-200 rounded">{requestData.description}</p>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <h3 className="font-semibold text-black mb-2">Our Response</h3>
             <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
-              <p className="text-sm text-gray-700">{response.analysis?.solution}</p>
+              <p className="text-black">{response.analysis?.solution || "Thank you for contacting us. We've received your request and will respond shortly."}</p>
+            </div>
+          </div>
+          
+          <div className="mb-6">
+            <h3 className="font-semibold text-black mb-2">Next Steps</h3>
+            <div className="p-4 bg-green-50 border-l-4 border-green-500">
+              <p className="text-black">
+                We have scheduled a call with one of our support specialists to discuss your request in detail.
+                {requestData.phone ? ` Our team will call you at ${requestData.phone} shortly.` : ' Please expect a call from our team soon.'}
+              </p>
             </div>
           </div>
           
@@ -134,6 +165,24 @@ export default function SupportFormPage() {
               required
               className="w-full p-2 border-2 border-black text-black focus:outline-none"
             />
+          </div>
+          
+          <div className="mb-4">
+            <label htmlFor="phone" className="block text-sm font-medium text-black mb-1">
+              Phone Number
+            </label>
+            <input
+              type="tel"
+              id="phone"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="e.g., 9881679994"
+              className="w-full p-2 border-2 border-black text-black focus:outline-none"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              If provided, our support team will call you to discuss your issue.
+            </p>
           </div>
           
           <div className="mb-4">
