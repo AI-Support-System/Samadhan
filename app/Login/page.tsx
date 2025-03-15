@@ -1,4 +1,5 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
+'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 const SCAN_LINES = 8;
@@ -11,12 +12,13 @@ const [password, setPassword] = useState('');
 const [isFaceScanning, setIsFaceScanning] = useState(false);
 const [showForgotPassword, setShowForgotPassword] = useState(false);
 const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-const savedMode = localStorage.getItem('darkMode');
+  const savedMode = typeof window !== "undefined" ? localStorage.getItem("darkMode") : null;
+
 return savedMode ? JSON.parse(savedMode) : false;
 });
 const [scanProgress, setScanProgress] = useState(0);
 const scannerRef = useRef<HTMLDivElement>(null);
-const scanIntervalRef = useRef<NodeJS.Timeout>();
+const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 useEffect(() => {
 if (isFaceScanning && scannerRef.current) {
 const chart = echarts.init(scannerRef.current);
@@ -65,7 +67,9 @@ scanIntervalRef.current = setInterval(() => {
 setScanProgress(prev => {
 const next = prev + (1 / (SCAN_DURATION / 100));
 if (next >= 1) {
-clearInterval(scanIntervalRef.current);
+  if (scanIntervalRef.current) {
+    clearInterval(scanIntervalRef.current);
+  }
 return 1;
 }
 return next;

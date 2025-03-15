@@ -1,4 +1,6 @@
+'use client';
 import React, { useState } from 'react';
+import "@/app/styles/Investment.css"
 
 const InvestmentRecommender = () => {
   // State for form inputs
@@ -56,9 +58,13 @@ const InvestmentRecommender = () => {
     marketSentiment: 'Neutral',
     lastUpdated: 'March 8, 2025'
   };
-  
+  type RiskLevel = 'low' | 'medium' | 'high';
+  type GoalType = 'retirement' | 'education' | 'home' | 'emergency';
+  type TimeHorizon = 'short' | 'medium' | 'long';
   // Function to adjust allocations based on goals and time horizon
-  const getBaseInvestments = (risk, goal, horizon) => {
+  const getBaseInvestments = ( risk: RiskLevel,  // Explicitly defining the type here
+    goal: GoalType,
+    horizon: TimeHorizon) => {
     let baseInvestments = [];
     
     // Base allocations by risk
@@ -134,9 +140,26 @@ const InvestmentRecommender = () => {
       percentage: Math.round((inv.percentage / total) * 100)
     }));
   };
+
+  interface MarketInfo {
+    trend: string;
+    volatility: number;
+    historicalReturn: number;  // Add this property
+    // Any other properties you need
+  }
   
+  type Investment = {
+    type: string;
+    percentage: number;
+    amountLocal: string;
+    amountUSD: string;
+    marketInfo: MarketInfo;
+  };
+  
+  // Define the investments array type
+  type Investments = Investment[];
   // Calculate expected returns based on allocation and time horizon
-  const calculateExpectedReturns = (investments, horizon) => {
+  const calculateExpectedReturns = (investments: Investments, horizon: TimeHorizon) => {
     const years = horizon === 'short' ? 2 : horizon === 'medium' ? 5 : 10;
     
     const weightedAnnualReturn = investments.reduce((sum, inv) => {
@@ -145,8 +168,8 @@ const InvestmentRecommender = () => {
     }, 0);
     
     // Compound annual growth rate formula
-    const futureValue = (amount) => amount * Math.pow(1 + (weightedAnnualReturn / 100), years);
-    const totalGrowth = (amount) => futureValue(amount) - amount;
+    const futureValue = (amount:number) => amount * Math.pow(1 + (weightedAnnualReturn / 100), years);
+    const totalGrowth = (amount:number) => futureValue(amount) - amount;
     const annualizedReturn = weightedAnnualReturn.toFixed(2);
     
     return {
@@ -159,40 +182,69 @@ const InvestmentRecommender = () => {
   };
   
   // Initialize custom allocations when investments change
-  const initCustomAllocations = (investments) => {
-    const newCustomAllocations = {};
+  const initCustomAllocations = (investments: Investments) => {
+    // Define the correct type for the object
+    const newCustomAllocations: Record<string, number> = {};
+    
     investments.forEach(inv => {
       newCustomAllocations[inv.type] = inv.percentage;
     });
+    
     setCustomAllocations(newCustomAllocations);
   };
   
   // Handle slider change for custom allocations
-  const handleAllocationChange = (type, value) => {
+  const handleAllocationChange = (type: string, value: string | number) => {
+    const numericValue = typeof value === 'string' ? parseInt(value, 10) : value;
+    
     setCustomAllocations({
       ...customAllocations,
-      [type]: parseInt(value)
+      [type]: numericValue
     });
   };
   
+  interface Recommendations {
+    investments: Investment[];
+    totalAmountLocal: number;
+    totalAmountUSD: number;
+    returns: ReturnEstimates;
+    isCustomized: boolean;
+    // Add other properties as needed
+  }
+
+  interface ReturnEstimates {
+    // Define properties for your return estimates
+    expected: number;
+    conservative: number;
+    aggressive: number;
+    // Add other properties as needed
+  }
+ 
+
   // Apply custom allocations
   const applyCustomAllocations = () => {
     // Check if allocations sum to 100%
-    const total = Object.values(customAllocations).reduce((sum, val) => sum + val, 0);
+    const total = (Object.values(customAllocations) as number[]).reduce((sum, val) => sum + val, 0);
     if (total !== 100) {
       alert(`Total allocation must equal 100%. Current total: ${total}%`);
       return;
     }
     
+    if (!recommendations) {
+      // Handle the null case - maybe show an error or return early
+      alert('No recommendations available');
+      return;
+    }
+  
     // Update recommendations with custom allocations
-    const updatedInvestments = recommendations.investments.map(inv => ({
+    const updatedInvestments: Investment[] = recommendations.investments.map((inv: Investment) => ({
       ...inv,
-      percentage: customAllocations[inv.type],
-      amountLocal: (recommendations.totalAmountLocal * customAllocations[inv.type] / 100).toFixed(2),
-      amountUSD: (recommendations.totalAmountUSD * customAllocations[inv.type] / 100).toFixed(2)
+      percentage: customAllocations[inv.type] ?? 0, // Use nullish coalescing for safety
+      amountLocal: (recommendations.totalAmountLocal * (customAllocations[inv.type] ?? 0) / 100).toFixed(2),
+      amountUSD: (recommendations.totalAmountUSD * (customAllocations[inv.type] ?? 0) / 100).toFixed(2)
     }));
     
-    const updatedReturns = calculateExpectedReturns(updatedInvestments, timeHorizon);
+    const updatedReturns = calculateExpectedReturns(updatedInvestments, horizon);
     
     setRecommendations({
       ...recommendations,
@@ -266,297 +318,292 @@ const InvestmentRecommender = () => {
   };
   
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold mb-2 text-blue-800">Investment Advisor</h2>
-      <p className="text-gray-600 mb-6">Smart recommendations based on your goals and market conditions</p>
+    <div className="investment-advisor-container">
+  <h2 className="advisor-title">Investment Advisor</h2>
+  <p className="advisor-subtitle">Smart recommendations based on your goals and market conditions</p>
+  
+  {!recommendations ? (
+    <>
+      <div className="intro-panel">
+        <p className="intro-text">Tell us about your savings and investment preferences, and we'll recommend an investment strategy tailored to your needs and current market conditions.</p>
+      </div>
       
-      {!recommendations ? (
-        <>
-          <div className="mb-8 bg-blue-50 p-4 rounded-lg">
-            <p className="text-gray-700">Tell us about your savings and investment preferences, and we'll recommend an investment strategy tailored to your needs and current market conditions.</p>
-          </div>
-          
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-gray-700 font-medium mb-2">
-                  Investment Goal
-                </label>
-                <div className="grid grid-cols-1 gap-2">
-                  {Object.entries(investmentGoals).map(([key, goal]) => (
-                    <div 
-                      key={key}
-                      className={`p-3 border rounded-md cursor-pointer flex items-center ${investmentGoal === key ? 'bg-blue-50 border-blue-500' : 'border-gray-300'}`}
-                      onClick={() => setInvestmentGoal(key)}
-                    >
-                      <span className="text-xl mr-3">{goal.icon}</span>
-                      <div>
-                        <h3 className="font-medium">{goal.name}</h3>
-                        <p className="text-xs text-gray-600">{goal.description}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <div className="mb-4">
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Time Horizon
-                  </label>
-                  <select
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={timeHorizon}
-                    onChange={(e) => setTimeHorizon(e.target.value)}
-                  >
-                    {Object.entries(timeHorizons).map(([key, horizon]) => (
-                      <option key={key} value={key}>{horizon.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-gray-700 font-medium mb-2">
-                    Risk Tolerance
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div 
-                      className={`p-3 border rounded-md text-center cursor-pointer ${riskTolerance === 'low' ? 'bg-green-100 border-green-500' : 'border-gray-300'}`}
-                      onClick={() => setRiskTolerance('low')}
-                    >
-                      <h3 className="font-medium">Low</h3>
-                      <p className="text-xs text-gray-600">Safe returns</p>
-                    </div>
-                    <div 
-                      className={`p-3 border rounded-md text-center cursor-pointer ${riskTolerance === 'medium' ? 'bg-yellow-100 border-yellow-500' : 'border-gray-300'}`}
-                      onClick={() => setRiskTolerance('medium')}
-                    >
-                      <h3 className="font-medium">Medium</h3>
-                      <p className="text-xs text-gray-600">Balanced</p>
-                    </div>
-                    <div 
-                      className={`p-3 border rounded-md text-center cursor-pointer ${riskTolerance === 'high' ? 'bg-red-100 border-red-500' : 'border-gray-300'}`}
-                      onClick={() => setRiskTolerance('high')}
-                    >
-                      <h3 className="font-medium">High</h3>
-                      <p className="text-xs text-gray-600">Growth focus</p>
-                    </div>
+      <div className="form-container">
+        <div className="form-grid">
+          <div className="goal-column">
+            <label className="form-label">
+              Investment Goal
+            </label>
+            <div className="goal-options">
+              {Object.entries(investmentGoals).map(([key, goal]) => (
+                <div 
+                  key={key}
+                  className={`goal-option ${investmentGoal === key ? 'goal-option-selected' : ''}`}
+                  onClick={() => setInvestmentGoal(key)}
+                >
+                  <span className="goal-icon">{goal.icon}</span>
+                  <div>
+                    <h3 className="goal-name">{goal.name}</h3>
+                    <p className="goal-description">{goal.description}</p>
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              <div className="col-span-2">
-                <label htmlFor="savings" className="block text-gray-700 font-medium mb-2">
-                  Available Savings Amount
-                </label>
-                <input
-                  type="number"
-                  id="savings"
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={savings}
-                  onChange={(e) => setSavings(e.target.value)}
-                  placeholder="Enter amount"
-                />
-              </div>
-              <div>
-                <label htmlFor="currency" className="block text-gray-700 font-medium mb-2">
-                  Currency
-                </label>
-                <select
-                  id="currency"
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                >
-                  {Object.entries(currencies).map(([code, { name }]) => (
-                    <option key={code} value={code}>
-                      {code} - {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            <button
-              className="w-full py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition duration-300"
-              onClick={generateRecommendations}
-            >
-              Get Investment Recommendations
-            </button>
-          </div>
-        </>
-      ) : (
-        <div>
-          <div className="mb-4 flex justify-between items-center">
-            <h3 className="text-xl font-bold text-blue-800">Your Personalized Investment Plan</h3>
-            <div className="flex gap-2">
-              <button
-                className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition duration-300"
-                onClick={resetForm}
-              >
-                New Plan
-              </button>
-              <button
-                className="px-4 py-2 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition duration-300"
-                onClick={() => window.print()}
-              >
-                Print/Save
-              </button>
+              ))}
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-bold text-blue-800 mb-2">Investment Summary</h4>
-              <p className="text-gray-700">
-                Amount: <span className="font-bold">
-                  {formatCurrency(recommendations.totalAmountLocal, recommendations.selectedCurrency)}
-                </span>
-                {recommendations.selectedCurrency !== 'USD' && (
-                  <span className="text-sm text-gray-500"> (approx. ${recommendations.totalAmountUSD.toFixed(2)} USD)</span>
-                )}
-              </p>
-              <p className="text-gray-700 mt-1">Goal: <span className="font-bold">{investmentGoals[recommendations.goal].name}</span></p>
-              <p className="text-gray-700 mt-1">Horizon: <span className="font-bold">{timeHorizons[recommendations.horizon].name}</span></p>
-              <p className="text-gray-700 mt-1">Risk Profile: <span className="font-bold capitalize">{riskTolerance}</span></p>
-              {recommendations.isCustomized && (
-                <div className="mt-2 text-xs inline-block px-2 py-1 bg-purple-100 text-purple-800 rounded">Custom Allocation</div>
-              )}
-            </div>
-            
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-bold text-green-800 mb-2">Expected Returns</h4>
-              <p className="text-gray-700">Annual Return: <span className="font-bold">{recommendations.returns.annualizedReturn}%</span></p>
-              <p className="text-gray-700 mt-1">
-                After {recommendations.returns.years} years: <span className="font-bold">
-                  {formatCurrency(recommendations.returns.futureValue(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
-                </span>
-              </p>
-              <p className="text-gray-700 mt-1">
-                Total Growth: <span className="font-bold text-green-700">
-                  {formatCurrency(recommendations.returns.totalGrowth(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
-                </span>
-              </p>
-              <p className="text-xs text-gray-500 mt-2">*Based on historical performance, not guaranteed</p>
-            </div>
-            
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h4 className="font-bold text-yellow-800 mb-2">Market Insights</h4>
-              <p className="text-gray-700 text-sm mb-1">Inflation: <span className="font-medium">{economicIndicators.inflation}</span></p>
-              <p className="text-gray-700 text-sm mb-1">Interest Rate: <span className="font-medium">{economicIndicators.interestRate}</span></p>
-              <p className="text-gray-700 text-sm mb-1">GDP Growth: <span className="font-medium">{economicIndicators.gdpGrowth}</span></p>
-              <p className="text-gray-700 text-sm mb-1">Market Sentiment: <span className="font-medium">{economicIndicators.marketSentiment}</span></p>
-              <p className="text-xs text-gray-500 mt-2">Last updated: {economicIndicators.lastUpdated}</p>
-            </div>
-          </div>
-          
-          {recommendations.opportunities.length > 0 && (
-            <div className="mb-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-              <h4 className="font-bold text-yellow-800 mb-2">Current Market Opportunities</h4>
-              <ul className="list-disc pl-5 space-y-1">
-                {recommendations.opportunities.map((opportunity, idx) => (
-                  <li key={idx} className="text-gray-700">
-                    <span className="font-medium capitalize">{opportunity.asset}</span>: {opportunity.condition.description}
-                  </li>
+          <div className="timeframe-column">
+            <div className="time-horizon-container">
+              <label className="form-label">
+                Time Horizon
+              </label>
+              <select
+                className="form-select"
+                value={timeHorizon}
+                onChange={(e) => setTimeHorizon(e.target.value)}
+              >
+                {Object.entries(timeHorizons).map(([key, horizon]) => (
+                  <option key={key} value={key}>{horizon.name}</option>
                 ))}
-              </ul>
+              </select>
             </div>
-          )}
-          
-          <div className="mb-4 flex justify-between items-center">
-            <h4 className="font-bold text-gray-800">Portfolio Allocation</h4>
-            {!isCustomizing ? (
-              <button
-                className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded-md hover:bg-purple-200 transition duration-300"
-                onClick={() => setIsCustomizing(true)}
-              >
-                Customize Allocation
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition duration-300"
-                  onClick={() => setIsCustomizing(false)}
+            
+            <div className="risk-container">
+              <label className="form-label">
+                Risk Tolerance
+              </label>
+              <div className="risk-options">
+                <div 
+                  className={`risk-option ${riskTolerance === 'low' ? 'risk-low-selected' : ''}`}
+                  onClick={() => setRiskTolerance('low')}
                 >
-                  Cancel
-                </button>
-                <button
-                  className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition duration-300"
-                  onClick={applyCustomAllocations}
+                  <h3 className="risk-level-name">Low</h3>
+                  <p className="risk-level-description">Safe returns</p>
+                </div>
+                <div 
+                  className={`risk-option ${riskTolerance === 'medium' ? 'risk-medium-selected' : ''}`}
+                  onClick={() => setRiskTolerance('medium')}
                 >
-                  Apply Changes
-                </button>
+                  <h3 className="risk-level-name">Medium</h3>
+                  <p className="risk-level-description">Balanced</p>
+                </div>
+                <div 
+                  className={`risk-option ${riskTolerance === 'high' ? 'risk-high-selected' : ''}`}
+                  onClick={() => setRiskTolerance('high')}
+                >
+                  <h3 className="risk-level-name">High</h3>
+                  <p className="risk-level-description">Growth focus</p>
+                </div>
               </div>
-            )}
-          </div>
-          
-          <div className="overflow-hidden rounded-lg border border-gray-200 mb-6">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Investment Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Allocation</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount ({currencies[recommendations.selectedCurrency].symbol})</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Est. Annual Return</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Market Trend</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {recommendations.investments.map((investment, idx) => (
-                  <tr key={idx}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{investment.type}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {isCustomizing ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={customAllocations[investment.type]}
-                            onChange={(e) => handleAllocationChange(investment.type, e.target.value)}
-                            className="w-24"
-                          />
-                          <span>{customAllocations[investment.type]}%</span>
-                        </div>
-                      ) : (
-                        `${investment.percentage}%`
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatCurrency(investment.amountLocal, recommendations.selectedCurrency)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {investment.marketInfo ? `${investment.marketInfo.historicalReturn}%` : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {investment.marketInfo ? (
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                          ${investment.marketInfo.trend === 'rising' ? 'bg-green-100 text-green-800' : 
-                            investment.marketInfo.trend === 'falling' ? 'bg-red-100 text-red-800' : 
-                            investment.marketInfo.trend === 'volatile' ? 'bg-purple-100 text-purple-800' : 
-                            'bg-blue-100 text-blue-800'}`
-                        }>
-                          {investment.marketInfo.trend.charAt(0).toUpperCase() + investment.marketInfo.trend.slice(1)}
-                        </span>
-                      ) : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          <div className="mt-8 p-4 border-t pt-4 text-gray-600 text-sm">
-            <h4 className="font-bold text-gray-700 mb-2">Important Information</h4>
-            <p>These recommendations are based on current market conditions and your specified preferences. Past performance does not guarantee future results.</p>
-            <p className="mt-1">Consider consulting with a financial advisor before making investment decisions. The expected returns are projections based on historical data and actual results may vary.</p>
-            <p className="mt-1">Risk Warning: Investments can go up and down in value, and you may get back less than you invest.</p>
+            </div>
           </div>
         </div>
+        
+        <div className="savings-grid">
+          <div className="savings-amount-container">
+            <label htmlFor="savings" className="form-label">
+              Available Savings Amount
+            </label>
+            <input
+              type="number"
+              id="savings"
+              className="form-input"
+              value={savings}
+              onChange={(e) => setSavings(e.target.value)}
+              placeholder="Enter amount"
+            />
+          </div>
+          <div className="currency-container">
+            <label htmlFor="currency" className="form-label">
+              Currency
+            </label>
+            <select
+              id="currency"
+              className="form-select"
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+            >
+              {Object.entries(currencies).map(([code, { name }]) => (
+                <option key={code} value={code}>
+                  {code} - {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <button
+          className="submit-button"
+          onClick={generateRecommendations}
+        >
+          Get Investment Recommendations
+        </button>
+      </div>
+    </>
+  ) : (
+    <div>
+      <div className="results-header">
+        <h3 className="results-title">Your Personalized Investment Plan</h3>
+        <div className="results-buttons">
+          <button
+            className="reset-button"
+            onClick={resetForm}
+          >
+            New Plan
+          </button>
+          <button
+            className="print-button"
+            onClick={() => window.print()}
+          >
+            Print/Save
+          </button>
+        </div>
+      </div>
+      
+      <div className="summary-grid">
+        <div className="summary-card investment-summary">
+          <h4 className="card-title">Investment Summary</h4>
+          <p className="summary-text">
+            Amount: <span className="bold-text">
+              {formatCurrency(recommendations.totalAmountLocal, recommendations.selectedCurrency)}
+            </span>
+            {recommendations.selectedCurrency !== 'USD' && (
+              <span className="usd-conversion"> (approx. ${recommendations.totalAmountUSD.toFixed(2)} USD)</span>
+            )}
+          </p>
+          <p className="summary-text">Goal: <span className="bold-text">{investmentGoals[recommendations.goal].name}</span></p>
+          <p className="summary-text">Horizon: <span className="bold-text">{timeHorizons[recommendations.horizon].name}</span></p>
+          <p className="summary-text">Risk Profile: <span className="bold-text capitalize">{riskTolerance}</span></p>
+          {recommendations.isCustomized && (
+            <div className="custom-allocation-badge">Custom Allocation</div>
+          )}
+        </div>
+        
+        <div className="summary-card returns-summary">
+          <h4 className="card-title returns-title">Expected Returns</h4>
+          <p className="summary-text">Annual Return: <span className="bold-text">{recommendations.returns.annualizedReturn}%</span></p>
+          <p className="summary-text">
+            After {recommendations.returns.years} years: <span className="bold-text">
+              {formatCurrency(recommendations.returns.futureValue(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
+            </span>
+          </p>
+          <p className="summary-text">
+            Total Growth: <span className="growth-text">
+              {formatCurrency(recommendations.returns.totalGrowth(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
+            </span>
+          </p>
+          <p className="disclaimer-text">*Based on historical performance, not guaranteed</p>
+        </div>
+        
+        <div className="summary-card market-insights">
+          <h4 className="card-title insights-title">Market Insights</h4>
+          <p className="insight-item">Inflation: <span className="medium-text">{economicIndicators.inflation}</span></p>
+          <p className="insight-item">Interest Rate: <span className="medium-text">{economicIndicators.interestRate}</span></p>
+          <p className="insight-item">GDP Growth: <span className="medium-text">{economicIndicators.gdpGrowth}</span></p>
+          <p className="insight-item">Market Sentiment: <span className="medium-text">{economicIndicators.marketSentiment}</span></p>
+          <p className="update-timestamp">Last updated: {economicIndicators.lastUpdated}</p>
+        </div>
+      </div>
+      
+      {recommendations.opportunities.length > 0 && (
+        <div className="opportunities-panel">
+          <h4 className="opportunities-title">Current Market Opportunities</h4>
+          <ul className="opportunities-list">
+            {recommendations.opportunities.map((opportunity, idx) => (
+              <li key={idx} className="opportunity-item">
+                <span className="opportunity-asset">{opportunity.asset}</span>: {opportunity.condition.description}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
+      
+      <div className="allocation-header">
+        <h4 className="allocation-title">Portfolio Allocation</h4>
+        {!isCustomizing ? (
+          <button
+            className="customize-button"
+            onClick={() => setIsCustomizing(true)}
+          >
+            Customize Allocation
+          </button>
+        ) : (
+          <div className="customize-actions">
+            <button
+              className="cancel-button"
+              onClick={() => setIsCustomizing(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="apply-button"
+              onClick={applyCustomAllocations}
+            >
+              Apply Changes
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <div className="allocation-table-container">
+        <table className="allocation-table">
+          <thead className="table-header">
+            <tr>
+              <th className="table-heading">Investment Type</th>
+              <th className="table-heading">Allocation</th>
+              <th className="table-heading">Amount ({currencies[recommendations.selectedCurrency].symbol})</th>
+              <th className="table-heading">Est. Annual Return</th>
+              <th className="table-heading">Market Trend</th>
+            </tr>
+          </thead>
+          <tbody className="table-body">
+            {recommendations.investments.map((investment, idx) => (
+              <tr key={idx} className="table-row">
+                <td className="cell investment-type">{investment.type}</td>
+                <td className="cell allocation-cell">
+                  {isCustomizing ? (
+                    <div className="allocation-slider-container">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={customAllocations[investment.type]}
+                        onChange={(e) => handleAllocationChange(investment.type, e.target.value)}
+                        className="allocation-slider"
+                      />
+                      <span className="allocation-percentage">{customAllocations[investment.type]}%</span>
+                    </div>
+                  ) : (
+                    `${investment.percentage}%`
+                  )}
+                </td>
+                <td className="cell amount-cell">
+                  {formatCurrency(investment.amountLocal, recommendations.selectedCurrency)}
+                </td>
+                <td className="cell return-cell">
+                  {investment.marketInfo ? `${investment.marketInfo.historicalReturn}%` : 'N/A'}
+                </td>
+                <td className="cell trend-cell">
+                  {investment.marketInfo ? (
+                    <span className={`trend-badge trend-${investment.marketInfo.trend}`}>
+                      {investment.marketInfo.trend.charAt(0).toUpperCase() + investment.marketInfo.trend.slice(1)}
+                    </span>
+                  ) : '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="disclaimer-section">
+        <h4 className="disclaimer-heading">Important Information</h4>
+        <p className="disclaimer-paragraph">These recommendations are based on current market conditions and your specified preferences. Past performance does not guarantee future results.</p>
+        <p className="disclaimer-paragraph">Consider consulting with a financial advisor before making investment decisions. The expected returns are projections based on historical data and actual results may vary.</p>
+        <p className="disclaimer-paragraph">Risk Warning: Investments can go up and down in value, and you may get back less than you invest.</p>
+      </div>
     </div>
+  )}
+</div>
   );
 };
 

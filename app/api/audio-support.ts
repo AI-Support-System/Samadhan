@@ -1,5 +1,3 @@
-// File: src/app/api/audio-support.ts
-
 import { SupportRequest, GroqAnalysisResponse, SupportResponse } from './text-support';
 
 // New interface for the audio request
@@ -10,10 +8,21 @@ export interface AudioSupportRequest {
   audioFile: File | Blob; // Audio file from user
 }
 
+// Enhanced response interface with localized fields
+export interface LocalizedSupportResponse extends SupportResponse {
+  localizedInfo: {
+    ticketMessage: string;
+    nextSteps: string;
+    statusMessage: string;
+  };
+  detectedLanguage: string;
+}
+
 // Function to transcribe audio using Groq's Whisper implementation
 async function transcribeAudioWithGroq(audioData: Blob): Promise<{
   subject: string;
   description: string;
+  detectedLanguage: string;
 }> {
   try {
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
@@ -46,6 +55,33 @@ async function transcribeAudioWithGroq(audioData: Blob): Promise<{
     // Extract the transcription
     const transcription = data.text || '';
     
+    // Detect language from transcription
+    const languageResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${groqApiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama3-70b-8192",
+        messages: [
+          {
+            role: "system",
+            content: `Identify the language of the following text. Respond with ONLY the language name in English (e.g., "English", "Hindi", "Spanish", etc.).`
+          },
+          {
+            role: "user",
+            content: transcription
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 50
+      })
+    });
+
+    const languageData = await languageResponse.json();
+    const detectedLanguage = languageData.choices?.[0]?.message?.content.trim() || 'English';
+    
     // Further process the transcription to extract subject and description
     // Using Groq to structure the transcription into subject and description
     const structureResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -61,6 +97,7 @@ async function transcribeAudioWithGroq(audioData: Blob): Promise<{
             role: "system",
             content: `You are an assistant that extracts the main subject and detailed description from customer support audio transcripts. 
             Extract a short subject line (max 10 words) and a more detailed description from the transcription.
+            If the text is not in English, provide the subject and description in the ORIGINAL LANGUAGE.
             
             Respond ONLY with a JSON object in the following format:
             {
@@ -88,15 +125,19 @@ async function transcribeAudioWithGroq(audioData: Blob): Promise<{
       throw new Error('Failed to parse JSON response from Groq');
     }
     
-    return JSON.parse(jsonMatch[0]);
+    const parsedResult = JSON.parse(jsonMatch[0]);
+    return {
+      ...parsedResult,
+      detectedLanguage
+    };
   } catch (error) {
     console.error('Error transcribing audio with Groq:', error);
     throw error;
   }
 }
 
-// Analyze with Groq (reusing from text-support.ts)
-async function analyzeWithGroq(request: SupportRequest): Promise<GroqAnalysisResponse> {
+// Analyze with Groq (modified to ensure response is in the same language)
+async function analyzeWithGroq(request: SupportRequest, detectedLanguage: string): Promise<GroqAnalysisResponse> {
   try {
     const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
     
@@ -119,16 +160,17 @@ async function analyzeWithGroq(request: SupportRequest): Promise<GroqAnalysisRes
             For solveable, answer ONLY with "Yes" or "No".
             For priority, answer ONLY with "High", "Medium", or "Low".
             For department, answer ONLY with "Loans", "Scam", "Inquiry", or "Services".
-            Always respond in the same language as the customer's query.
+            
+            The customer is using ${detectedLanguage}. You MUST respond with the solution in ${detectedLanguage} only.
             
             Respond ONLY with a JSON object in the following format:
             {
               "category": "Account|Technical|Billing|Product|Other",
               "priority": "High|Medium|Low",
               "department": "Loans|Scam|Inquiry|Services",
-              "language": "English|Spanish|French|etc",
+              "language": "${detectedLanguage}",
               "solveable": "Yes|No",
-              "solution": "Clear and concise solution or next steps. make it detailed and easily understandable."
+              "solution": "Clear and concise solution or next steps in ${detectedLanguage} language. Make it detailed and easily understandable."
             }`
           },
           {
@@ -165,11 +207,90 @@ async function analyzeWithGroq(request: SupportRequest): Promise<GroqAnalysisRes
   }
 }
 
+// Function to generate localized response messages
+async function generateLocalizedMessages(ticketId: string, analysis: GroqAnalysisResponse, detectedLanguage: string): Promise<{
+  ticketMessage: string;
+  nextSteps: string;
+  statusMessage: string;
+}> {
+  try {
+    const groqApiKey = process.env.NEXT_PUBLIC_GROQ_API_KEY;
+    
+    if (!groqApiKey) {
+      throw new Error('Groq API key is not defined');
+    }
+    
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${groqApiKey}`
+      },
+      body: JSON.stringify({
+        model: "llama3-70b-8192",
+        messages: [
+          {
+            role: "system",
+            content: `You are a professional bank customer support system. You need to generate customer-facing messages in ${detectedLanguage}.
+            
+            Create three messages:
+            1. A message confirming ticket creation with the ticket ID
+            2. Next steps information explaining what will happen next
+            3. A status message indicating the request was successful
+            
+            All messages should be in ${detectedLanguage} ONLY.
+            
+            Respond ONLY with a JSON object in the following format:
+            {
+              "ticketMessage": "Message about ticket creation in ${detectedLanguage}",
+              "nextSteps": "Information about next steps in ${detectedLanguage}",
+              "statusMessage": "Status confirmation message in ${detectedLanguage}"
+            }`
+          },
+          {
+            role: "user",
+            content: `Ticket ID: ${ticketId}
+            Priority: ${analysis.priority}
+            Department: ${analysis.department}
+            Solveable: ${analysis.solveable}`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 1000
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(`Groq API error: ${data.error.message}`);
+    }
+    
+    // Parse the JSON response from Groq
+    const contentString = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = contentString.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      throw new Error('Failed to parse JSON response from Groq');
+    }
+    
+    return JSON.parse(jsonMatch[0]);
+  } catch (error) {
+    console.error('Error generating localized messages:', error);
+    // Provide fallback messages in the detected language
+    return {
+      ticketMessage: `Ticket ID: ${ticketId}`,
+      nextSteps: "We will process your request.",
+      statusMessage: "Success"
+    };
+  }
+}
+
 // Reuse other functions from text-support.ts
 async function saveToGoogleSheets(request: SupportRequest, analysis: GroqAnalysisResponse, ticketId: string): Promise<boolean> {
   try {
     const customerId = ticketId;
-    
+
     // Fix: Use direct URL with all parameters
     const baseUrl = 'https://script.google.com/macros/s/AKfycbw-CzEZI_vkZnCb84QyoHJEW5_-rKYBwlMIloCBcHDcpjcq2SvycreyJcYGrzjJixhR/exec';
     
@@ -234,7 +355,7 @@ async function makePhoneCall(request: SupportRequest, analysis: GroqAnalysisResp
       },
       body: JSON.stringify({
         phone_number: phoneWithCountryCode,
-        task: `You're a bank support representative. The customer ${request.name} has submitted a support request about: ${request.subject}. Their issue is: ${request.description}. Based on our analysis, the recommended solution is: ${analysis.solution}. Call them to follow up and provide this solution. Speak to them in ${analysis.language}. Make it Natural.`,
+        task: `You're a bank support representative. The customer ${request.name} has submitted a support request about: ${request.subject}. Their issue is: ${request.description}. Based on our analysis, the recommended solution is: ${analysis.solution}. Call them to follow up and provide this solution. You MUST speak to them in ${analysis.language} only. Make it Natural.`,
         voice: 'nicole',
         reduce_latency: true,
         wait_for_greeting: true
@@ -250,30 +371,33 @@ async function makePhoneCall(request: SupportRequest, analysis: GroqAnalysisResp
 }
 
 // Main function to handle audio support requests
-export async function submitAudioSupportRequest(request: AudioSupportRequest): Promise<SupportResponse> {
+export async function submitAudioSupportRequest(request: AudioSupportRequest): Promise<LocalizedSupportResponse> {
   try {
     // Generate ticket ID
     const ticketId = `BANK-${Date.now().toString().slice(-6)}`;
     
-    // Step 1: Transcribe the audio using Groq's Whisper
-    const transcription = await transcribeAudioWithGroq(request.audioFile);
+    // Step 1: Transcribe the audio using Groq's Whisper and detect language
+    const transcriptionResult = await transcribeAudioWithGroq(request.audioFile);
     
     // Step 2: Create a support request object using the transcribed data
     const supportRequest: SupportRequest = {
       name: request.name,
       email: request.email,
       phone: request.phone,
-      subject: transcription.subject,
-      description: transcription.description
+      subject: transcriptionResult.subject,
+      description: transcriptionResult.description
     };
     
-    // Step 3: Analyze the request with Groq
-    const analysis = await analyzeWithGroq(supportRequest);
+    // Step 3: Analyze the request with Groq, ensuring response is in the detected language
+    const analysis = await analyzeWithGroq(supportRequest, transcriptionResult.detectedLanguage);
     
-    // Step 4: Save data to Google Sheets
+    // Step 4: Generate localized messages
+    const localizedMessages = await generateLocalizedMessages(ticketId, analysis, transcriptionResult.detectedLanguage);
+    
+    // Step 5: Save data to Google Sheets
     const sheetResult = await saveToGoogleSheets(supportRequest, analysis, ticketId);
     
-    // Step 5: ALWAYS make phone call using Bland.ai
+    // Step 6: ALWAYS make phone call using Bland.ai
     let callResult = false;
     try {
       callResult = await makePhoneCall(supportRequest, analysis);
@@ -287,7 +411,8 @@ export async function submitAudioSupportRequest(request: AudioSupportRequest): P
       success: sheetResult,
       ticketId,
       analysis,
-      requestData: supportRequest
+      requestData: supportRequest,
+      detectedLanguage: transcriptionResult.detectedLanguage // Adding detected language to the response
     };
   } catch (error) {
     console.error('Error submitting audio support request:', error);

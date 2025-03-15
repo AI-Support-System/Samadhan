@@ -1,8 +1,11 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
-
+'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import * as echarts from 'echarts';
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import Header from '../components/HomeHeader';
+import Footer from '../components/Footer';
+
 const Home: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showVoiceInput, setShowVoiceInput] = useState(false);
@@ -10,6 +13,9 @@ const Home: React.FC = () => {
   const [balance, setBalance] = useState('184,392.75');
   const [isFaceScanning, setIsFaceScanning] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
+
+  const heroBackgroundUrl = 'https://public.readdy.ai/ai/img_res/67cdc5c6fc4580df96eeb4a10f945129.jpg';
+  const featureImageUrl = 'https://public.readdy.ai/ai/img_res/2b9b5eb3991fe34ce7e8b4e4a55868b3.jpg';
 
   useEffect(() => {
     if (chartRef.current) {
@@ -91,55 +97,10 @@ const Home: React.FC = () => {
     }
   ];
 
-  const heroBackgroundUrl = 'https://public.readdy.ai/ai/img_res/67cdc5c6fc4580df96eeb4a10f945129.jpg';
-
-  const featureImageUrl = 'https://public.readdy.ai/ai/img_res/2b9b5eb3991fe34ce7e8b4e4a55868b3.jpg';
-
   return (
     <div className="min-h-screen bg-[#080810] text-white font-sans">
-      {/* Hero Section */}
-      <div 
-        className="relative h-[600px] w-full bg-cover bg-center"
-        style={{ backgroundImage: `url(${heroBackgroundUrl})` }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-[#080810] via-[#08081099] to-transparent">
-          <div className="container mx-auto px-8 py-16">
-            <nav className="flex items-center justify-between mb-16">
-              <div className="text-2xl font-bold text-white flex items-center gap-2">
-                <i className="fas fa-cube text-[#00F0FF]"></i>
-                <span>NeoBank</span>
-              </div>
-              <div className="flex items-center gap-8">
-                {['Features', 'Security', 'Support', 'About'].map((item) => (
-                  <button key={item} className="text-white hover:text-[#00F0FF] transition-colors cursor-pointer whitespace-nowrap !rounded-button">
-                    {item}
-                  </button>
-                ))}
-                <button className="bg-[#00F0FF] text-black px-6 py-2 font-semibold hover:bg-[#32FFBD] transition-colors cursor-pointer whitespace-nowrap !rounded-button">
-                  Sign In
-                </button>
-              </div>
-            </nav>
-
-            <div className="max-w-2xl">
-              <h1 className="text-6xl font-bold mb-6 leading-tight">
-                Banking Reimagined for the Digital Age
-              </h1>
-              <p className="text-xl text-gray-300 mb-8">
-                Experience the future of finance with AI-powered insights, seamless transactions, and unparalleled security.
-              </p>
-              <div className="flex gap-4">
-                <button className="bg-[#BA01FF] px-8 py-3 font-semibold hover:bg-[#32FFBD] transition-colors cursor-pointer whitespace-nowrap !rounded-button">
-                  Get Started
-                </button>
-                <button className="border-2 border-[#00F0FF] px-8 py-3 font-semibold hover:bg-[#00F0FF] hover:text-black transition-all cursor-pointer whitespace-nowrap !rounded-button">
-                  Learn More
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Header Component */}
+      <Header heroBackgroundUrl={heroBackgroundUrl} />
 
       {/* Features Section */}
       <div className="container mx-auto px-8 py-24">
@@ -222,36 +183,8 @@ const Home: React.FC = () => {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="bg-[#ffffff0d] mt-16 py-16">
-        <div className="container mx-auto px-8">
-          <div className="grid grid-cols-4 gap-8">
-            <div>
-              <div className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-                <i className="fas fa-cube text-[#00F0FF]"></i>
-                <span>NeoBank</span>
-              </div>
-              <p className="text-gray-400">
-                Revolutionizing banking for the digital age with cutting-edge technology and security.
-              </p>
-            </div>
-            {['Products', 'Company', 'Resources', 'Legal'].map((section) => (
-              <div key={section}>
-                <h3 className="font-semibold mb-6">{section}</h3>
-                <ul className="space-y-3">
-                  {['Features', 'Security', 'Support', 'Contact'].map((item) => (
-                    <li key={item}>
-                      <a href="#" className="text-gray-400 hover:text-[#00F0FF] transition-colors cursor-pointer">
-                        {item}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </div>
-      </footer>
+      {/* Footer Component */}
+      <Footer />
 
       {/* Modal Overlays */}
       {isFaceScanning && (
@@ -332,4 +265,3 @@ const Home: React.FC = () => {
 };
 
 export default Home;
-

@@ -1,12 +1,33 @@
+'use client';
 import React, { useState, useEffect, useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination, Autoplay } from "swiper/modules";
 import * as echarts from "echarts";
+import '@fortawesome/fontawesome-free/css/all.min.css';
+import { useRouter } from "next/navigation";
+import ChatbotWidget from "../components/Chatbot";// Import the ChatbotWidget component
+import "@/app/styles/UserDashboard.css";
 const UserDashboard: React.FC = () => {
   const [showBalance, setShowBalance] = useState(true);
   const [showDropdown, setShowDropdown] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const [notifications, setNotifications] = useState(false);
+  const router = useRouter();
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
+  const handleOptionClick = (path: string) => {
+    router.push(path);
+  };
+  
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+  };
+  
+  const handleQuerySolver = () => {
+    alert("Smart Query Solver is coming soon!");
+    // Placeholder for the query solver functionality
+  };
+  
   const transactions = [
     {
       id: 1,
@@ -90,7 +111,7 @@ const UserDashboard: React.FC = () => {
     }
   }, []);
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white font-[Rajdhani] p-6">
+    <div className="min-h-screen bg-[#0A0A0F] text-white font-[Rajdhani] p-6 relative">
       <div className="max-w-[1440px] mx-auto">
         {/* Header */}
         <header className="flex justify-between items-center mb-8">
@@ -168,16 +189,14 @@ const UserDashboard: React.FC = () => {
           <div className="col-span-4 bg-[#12121A] rounded-xl p-6 border border-[#1A1A2E] shadow-lg">
             <h2 className="text-xl mb-4">Quick Actions</h2>
             <div className="grid grid-cols-2 gap-4">
-              <a
-                href="https://readdy.ai/home/bbab4429-1404-4fc5-9164-78c5c802e19a/d673875f-1e6c-4a13-b4b4-7b8e014810f2"
-                data-readdy="true"
-                className="block"
-              >
-                <button className="bg-[#1A1A2E] p-4 rounded-lg text-center hover:bg-[#252538] transition-all !rounded-button cursor-pointer w-full">
+              
+                <button
+                onClick={() => handleOptionClick('/MoneyTransfer')}
+                className="bg-[#1A1A2E] p-4 rounded-lg text-center hover:bg-[#252538] transition-all !rounded-button cursor-pointer w-full">
                   <i className="fas fa-exchange-alt text-[#00F0FF] text-xl mb-2"></i>
                   <div className="text-sm">Transfer</div>
                 </button>
-              </a>
+              
               <button className="bg-[#1A1A2E] p-4 rounded-lg text-center hover:bg-[#252538] transition-all !rounded-button cursor-pointer">
                 <i className="fas fa-credit-card text-[#B026FF] text-xl mb-2"></i>
                 <div className="text-sm">Pay Bills</div>
@@ -186,9 +205,11 @@ const UserDashboard: React.FC = () => {
                 <i className="fas fa-piggy-bank text-[#FF2E6C] text-xl mb-2"></i>
                 <div className="text-sm">Save</div>
               </button>
-              <button className="bg-[#1A1A2E] p-4 rounded-lg text-center hover:bg-[#252538] transition-all !rounded-button cursor-pointer">
+              <button 
+              onClick={() => handleOptionClick('/InvestmentRecommender')}
+              className="bg-[#1A1A2E] p-4 rounded-lg text-center hover:bg-[#252538] transition-all !rounded-button cursor-pointer">
                 <i className="fas fa-chart-line text-[#36D399] text-xl mb-2"></i>
-                <div className="text-sm">Invest</div>
+                <div className="text-sm">Investment Recommender</div>
               </button>
             </div>
           </div>
@@ -231,7 +252,42 @@ const UserDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+      
+      {/* Chat and Query Widgets */}
+      <div className="fixed bottom-1 right-6 flex flex-col gap-6 z-50 animate-float">
+  {/* Chatbot Widget Button - Now First */}
+  <button 
+    onClick={toggleChat}
+    className="w-16 h-16 rounded-full bg-gradient-to-br from-[#00F0FF] to-[#00A8FF] flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-[#80F8FF]/30 relative overflow-hidden group"
+    style={{
+      animation: "float 3s ease-in-out infinite",
+      animationDelay: "0.5s"
+    }}
+  >
+    <div className="absolute inset-0 bg-[#00F0FF] opacity-0 group-hover:opacity-20 transition-opacity"></div>
+    <div className="absolute -inset-1 bg-gradient-to-r from-[#00F0FF]/20 to-transparent blur-sm rounded-full"></div>
+    <i className="fas fa-comment-dots text-white text-2xl"></i>
+  </button>
+  
+  {/* Query Solver Widget - Now Second */}
+  <button 
+    onClick={handleQuerySolver}
+    className="w-16 h-16 rounded-full bg-gradient-to-br from-[#B026FF] to-[#D041FF] flex items-center justify-center shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 border border-[#E366FF]/30 relative overflow-hidden group"
+    style={{
+      animation: "float 3s ease-in-out infinite",
+      animationDelay: "0s"
+    }}
+  >
+    <div className="absolute inset-0 bg-[#B026FF] opacity-0 group-hover:opacity-20 transition-opacity"></div>
+    <div className="absolute -inset-1 bg-gradient-to-r from-[#B026FF]/20 to-transparent blur-sm rounded-full"></div>
+    <i className="fas fa-question-circle text-white text-2xl"></i>
+  </button>
+</div>
+      
+      {/* Chatbot Widget Window */}
+      {isChatOpen && <ChatbotWidget onClose={toggleChat} />}
     </div>
   );
 };
+
 export default UserDashboard;

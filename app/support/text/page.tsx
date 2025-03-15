@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { submitSupportRequest, SupportRequest, SupportResponse } from '@/app/api/text-support';
+import '@/app/styles/text.css';
 
 export default function SupportFormPage() {
   const router = useRouter();
@@ -73,72 +74,72 @@ export default function SupportFormPage() {
   const requestData = getRequestData();
 
   return (
-    <div className="min-h-screen bg-white p-6 flex flex-col items-center">
-      <h1 className="text-3xl font-bold mb-8 text-black">Submit a Support Request</h1>
+    <div className="support-container">
+      <h1 className="support-title">Submit a Support Request</h1>
       
       {response ? (
-        <div className="w-full max-w-2xl bg-white border-2 border-black p-6">
-          <h2 className="text-xl font-bold mb-4 text-black">Request Submitted Successfully</h2>
+        <div className="response-container">
+          <h2 className="response-header">Request Submitted Successfully</h2>
           
-          <div className="mb-6">
-            <h3 className="font-semibold text-black mb-2">Ticket Information</h3>
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded mb-4">
-              <p className="text-black"><strong>Ticket ID:</strong> {response.ticketId}</p>
+          <div className="ticket-section">
+            <h3 className="section-title">Ticket Information</h3>
+            <div className="ticket-info">
+              <p><strong>Ticket ID:</strong> {response.ticketId}</p>
             </div>
           </div>
           
-          <div className="mb-6">
-            <h3 className="font-semibold text-black mb-2">Your Request Details</h3>
-            <div className="p-3 bg-gray-50 border border-gray-200 rounded mb-4">
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <p className="text-black"><strong>Name:</strong> {requestData.name}</p>
-                <p className="text-black"><strong>Email:</strong> {requestData.email}</p>
+          <div className="understanding-section">
+            <h3 className="section-title">Your Request Details</h3>
+            <div className="understanding-content">
+              <div className="request-details-grid">
+                <p><strong>Name:</strong> {requestData.name}</p>
+                <p><strong>Email:</strong> {requestData.email}</p>
               </div>
-              <div className="grid grid-cols-2 gap-2 mb-2">
-                <p className="text-black"><strong>Phone:</strong> {requestData.phone || 'Not provided'}</p>
-                <p className="text-black"><strong>Subject:</strong> {requestData.subject || 'Not provided'}</p>
+              <div className="request-details-grid">
+                <p><strong>Phone:</strong> {requestData.phone || 'Not provided'}</p>
+                <p><strong>Subject:</strong> {requestData.subject || 'Not provided'}</p>
               </div>
-              <p className="text-black"><strong>Description:</strong></p>
-              <p className="text-black mt-2 p-2 bg-white border border-gray-200 rounded">{requestData.description}</p>
+              <p><strong>Description:</strong></p>
+              <p className="description-content">{requestData.description}</p>
             </div>
           </div>
           
-          <div className="mb-6">
-            <h3 className="font-semibold text-black mb-2">Our Response</h3>
-            <div className="p-4 bg-blue-50 border-l-4 border-blue-500">
-              <p className="text-black">{response.analysis?.solution || "Thank you for contacting us. We've received your request and will respond shortly."}</p>
+          <div className="solution-section">
+            <h3 className="section-title">Our Response</h3>
+            <div className="solution-content">
+              <p>{response.analysis?.solution || "Thank you for contacting us. We've received your request and will respond shortly."}</p>
             </div>
           </div>
           
-          <div className="mb-6">
-            <h3 className="font-semibold text-black mb-2">Next Steps</h3>
-            <div className="p-4 bg-green-50 border-l-4 border-green-500">
-              <p className="text-black">
+          <div className="next-steps-section">
+            <h3 className="section-title">Next Steps</h3>
+            <div className="next-steps-content">
+              <p>
                 We have scheduled a call with one of our support specialists to discuss your request in detail.
                 {requestData.phone ? ` Our team will call you at ${requestData.phone} shortly.` : ' Please expect a call from our team soon.'}
               </p>
             </div>
           </div>
           
-          <div className="flex justify-end">
+          <div className="footer-section">
             <button
               onClick={handleBackToHome}
-              className="px-6 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
+              className="back-link"
             >
               Back to Support Options
             </button>
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="w-full max-w-md bg-white border-2 border-black p-6">
+        <form onSubmit={handleSubmit} className="form-container">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-500 text-red-700">
+            <div className="error-message">
               {error}
             </div>
           )}
           
-          <div className="mb-4">
-            <label htmlFor="name" className="block text-sm font-medium text-black mb-1">
+          <div className="form-field">
+            <label htmlFor="name" className="form-label">
               Name *
             </label>
             <input
@@ -148,12 +149,12 @@ export default function SupportFormPage() {
               value={formData.name}
               onChange={handleChange}
               required
-              className="w-full p-2 border-2 border-black text-black focus:outline-none"
+              className="form-input"
             />
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="email" className="block text-sm font-medium text-black mb-1">
+          <div className="form-field">
+            <label htmlFor="email" className="form-label">
               Email *
             </label>
             <input
@@ -163,12 +164,12 @@ export default function SupportFormPage() {
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full p-2 border-2 border-black text-black focus:outline-none"
+              className="form-input"
             />
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="phone" className="block text-sm font-medium text-black mb-1">
+          <div className="form-field">
+            <label htmlFor="phone" className="form-label">
               Phone Number
             </label>
             <input
@@ -178,15 +179,15 @@ export default function SupportFormPage() {
               value={formData.phone}
               onChange={handleChange}
               placeholder="e.g., 9881679994"
-              className="w-full p-2 border-2 border-black text-black focus:outline-none"
+              className="form-input"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="form-hint">
               If provided, our support team will call you to discuss your issue.
             </p>
           </div>
           
-          <div className="mb-4">
-            <label htmlFor="subject" className="block text-sm font-medium text-black mb-1">
+          <div className="form-field">
+            <label htmlFor="subject" className="form-label">
               Subject
             </label>
             <input
@@ -195,12 +196,12 @@ export default function SupportFormPage() {
               name="subject"
               value={formData.subject}
               onChange={handleChange}
-              className="w-full p-2 border-2 border-black text-black focus:outline-none"
+              className="form-input"
             />
           </div>
           
-          <div className="mb-6">
-            <label htmlFor="description" className="block text-sm font-medium text-black mb-1">
+          <div className="form-field">
+            <label htmlFor="description" className="form-label">
               Description *
             </label>
             <textarea
@@ -210,15 +211,15 @@ export default function SupportFormPage() {
               onChange={handleChange}
               required
               rows={5}
-              className="w-full p-2 border-2 border-black text-black focus:outline-none resize-none"
+              className="form-textarea"
             />
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="form-actions">
             <button
               type="button"
               onClick={handleBackToHome}
-              className="px-4 py-2 border-2 border-black text-black hover:bg-black hover:text-white transition-colors"
+              className="back-button"
             >
               Back
             </button>
@@ -226,7 +227,7 @@ export default function SupportFormPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-400"
+              className={`send-button ${isSubmitting ? 'sending' : ''}`}
             >
               {isSubmitting ? 'Submitting...' : 'Submit Request'}
             </button>

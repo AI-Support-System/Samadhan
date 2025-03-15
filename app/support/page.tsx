@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mic, MessageSquare } from 'lucide-react';
+import '@/app/styles/support.css';
 
 export default function SupportChoicePage() {
   const router = useRouter();
@@ -13,58 +14,42 @@ export default function SupportChoicePage() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-white p-6">
-      <h1 className="text-3xl font-bold mb-6 text-black">How would you like to contact support?</h1>
+    <div className="support-container">
+      <h1 className="support-title">How would you like to contact support?</h1>
       
-      <div className="flex flex-col md:flex-row gap-8 w-full max-w-3xl">
+      <div className="support-options-wrapper">
         {/* Audio Option */}
         <div 
-          className={`flex-1 border-2 border-black p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
-            hoveredOption === 'audio' ? 'bg-black text-white' : 'bg-white text-black'
-          }`}
+          className={`support-option ${hoveredOption === 'audio' ? 'support-option-hovered' : ''}`}
           onMouseEnter={() => setHoveredOption('audio')}
           onMouseLeave={() => setHoveredOption(null)}
           onClick={() => handleOptionClick('/support/audio')}
         >
           <Mic 
             size={64} 
-            className={`mb-4 ${hoveredOption === 'audio' ? 'text-white' : 'text-black'}`} 
+            className={`option-icon ${hoveredOption === 'audio' ? 'option-icon-hovered' : ''}`} 
           />
-          <h2 className="text-xl font-semibold mb-3">Audio Support</h2>
-          <p className="text-center mb-6">Speak with our support team directly through a voice call.</p>
-          <button 
-            className={`px-6 py-2 border-2 transition-colors ${
-              hoveredOption === 'audio' 
-                ? 'border-white text-white' 
-                : 'border-black text-black hover:bg-black hover:text-white'
-            }`}
-          >
+          <h2 className="option-title">Audio Support</h2>
+          <p className="option-description">Speak with our support team directly through a voice call.</p>
+          <button className="option-button">
             Start Voice Call
           </button>
         </div>
 
         {/* Text Option */}
         <div 
-          className={`flex-1 border-2 border-black p-8 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
-            hoveredOption === 'text' ? 'bg-black text-white' : 'bg-white text-black'
-          }`}
+          className={`support-option ${hoveredOption === 'text' ? 'support-option-hovered' : ''}`}
           onMouseEnter={() => setHoveredOption('text')}
           onMouseLeave={() => setHoveredOption(null)}
           onClick={() => handleOptionClick('/support/text')}
         >
           <MessageSquare 
             size={64} 
-            className={`mb-4 ${hoveredOption === 'text' ? 'text-white' : 'text-black'}`} 
+            className={`option-icon ${hoveredOption === 'text' ? 'option-icon-hovered' : ''}`} 
           />
-          <h2 className="text-xl font-semibold mb-3">Text Support</h2>
-          <p className="text-center mb-6">Chat with our support team through text messaging.</p>
-          <button 
-            className={`px-6 py-2 border-2 transition-colors ${
-              hoveredOption === 'text' 
-                ? 'border-white text-white' 
-                : 'border-black text-black hover:bg-black hover:text-white'
-            }`}
-          >
+          <h2 className="option-title">Text Support</h2>
+          <p className="option-description">Chat with our support team through text messaging.</p>
+          <button className="option-button">
             Start Text Chat
           </button>
         </div>
