@@ -1,610 +1,577 @@
 'use client';
+
 import React, { useState } from 'react';
-import "@/app/styles/Investment.css"
+import {
+  InvestmentFormData,
+  Recommendation,
+  generateInvestmentRecommendations,
+  getCurrencySymbol,
+  formatCurrency
+} from '@/app/api/InvestmentApi'; // Update this path to match your project structure
+import "@/app/styles/Investment.css";
 
-const InvestmentRecommender = () => {
-  // State for form inputs
-  const [savings, setSavings] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [riskTolerance, setRiskTolerance] = useState('medium');
-  const [investmentGoal, setInvestmentGoal] = useState('growth');
-  const [timeHorizon, setTimeHorizon] = useState('medium');
-  const [recommendations, setRecommendations] = useState(null);
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
-  const [customAllocations, setCustomAllocations] = useState({});
-  const [isCustomizing, setIsCustomizing] = useState(false);
-  
-  // Currency symbols and conversion rates (relative to USD)
-  const currencies = {
-    USD: { symbol: '$', rate: 1, name: 'US Dollar' },
-    INR: { symbol: '₹', rate: 0.012, name: 'Indian Rupee' },
-    EUR: { symbol: '€', rate: 1.09, name: 'Euro' },
-    GBP: { symbol: '£', rate: 1.29, name: 'British Pound' },
-    JPY: { symbol: '¥', rate: 0.0067, name: 'Japanese Yen' }
-  };
-  
-  // Investment goals
-  const investmentGoals = {
-    growth: { name: 'Wealth Growth', description: 'Focus on growing wealth over time', icon: '📈' },
-    retirement: { name: 'Retirement', description: 'Planning for retirement years', icon: '🏖️' },
-    education: { name: 'Education', description: 'Saving for education expenses', icon: '🎓' },
-    home: { name: 'Home Purchase', description: 'Saving for a home down payment', icon: '🏠' },
-    emergency: { name: 'Emergency Fund', description: 'Building a safety net', icon: '🛡️' }
-  };
-  
-  // Time horizons
-  const timeHorizons = {
-    short: { name: 'Short-term (0-2 years)', expectedReturn: { low: 2, medium: 4, high: 7 } },
-    medium: { name: 'Medium-term (3-7 years)', expectedReturn: { low: 4, medium: 7, high: 12 } },
-    long: { name: 'Long-term (8+ years)', expectedReturn: { low: 6, medium: 10, high: 15 } }
-  };
-  
-  // Mock market conditions - in a real app, this would come from an API
-  const marketConditions = {
-    gold: { trend: 'falling', opportunity: 'high', description: 'Gold prices have fallen recently, presenting a buying opportunity', historicalReturn: 3.5 },
-    stocks: { trend: 'rising', opportunity: 'medium', description: 'Stock market has been on an upward trend with moderate volatility', historicalReturn: 10 },
-    bonds: { trend: 'stable', opportunity: 'low', description: 'Government bonds offer stable but lower returns', historicalReturn: 5 },
-    realEstate: { trend: 'stable', opportunity: 'medium', description: 'Real estate market is stable with good long-term outlook', historicalReturn: 7 },
-    mutualFunds: { trend: 'mixed', opportunity: 'medium', description: 'Mutual funds offer diversified exposure with varying returns', historicalReturn: 8 },
-    crypto: { trend: 'volatile', opportunity: 'high', description: 'Cryptocurrency market shows high volatility and risk', historicalReturn: 15 },
-    fixedDeposits: { trend: 'stable', opportunity: 'low', description: 'Fixed deposits provide secure returns with low risk', historicalReturn: 3 }
-  };
+const InvestmentAdvisor: React.FC = () => {
+  const [formData, setFormData] = useState<InvestmentFormData>({
+    savingsAmount: 10000,
+    timeHorizon: 5,
+    riskTolerance: 'medium',
+    investmentGoal: 'wealth',
+    currency: 'inr' // Add currency to the initial state
+  });
 
-  // Current economic indicators
-  const economicIndicators = {
-    inflation: '2.7%',
-    interestRate: '3.2%',
-    gdpGrowth: '1.9%',
-    marketSentiment: 'Neutral',
-    lastUpdated: 'March 8, 2025'
-  };
-  type RiskLevel = 'low' | 'medium' | 'high';
-  type GoalType = 'retirement' | 'education' | 'home' | 'emergency';
-  type TimeHorizon = 'short' | 'medium' | 'long';
-  // Function to adjust allocations based on goals and time horizon
-  const getBaseInvestments = ( risk: RiskLevel,  // Explicitly defining the type here
-    goal: GoalType,
-    horizon: TimeHorizon) => {
-    let baseInvestments = [];
-    
-    // Base allocations by risk
-    if (risk === 'low') {
-      baseInvestments = [
-        { type: 'Government Bonds', percentage: 50, marketInfo: marketConditions.bonds },
-        { type: 'Fixed Deposits', percentage: 30, marketInfo: marketConditions.fixedDeposits },
-        { type: 'Gold', percentage: 20, marketInfo: marketConditions.gold }
-      ];
-    } else if (risk === 'medium') {
-      baseInvestments = [
-        { type: 'Mutual Funds', percentage: 40, marketInfo: marketConditions.mutualFunds },
-        { type: 'Blue-chip Stocks', percentage: 30, marketInfo: marketConditions.stocks },
-        { type: 'Government Bonds', percentage: 20, marketInfo: marketConditions.bonds },
-        { type: 'Gold', percentage: 10, marketInfo: marketConditions.gold }
-      ];
-    } else {
-      baseInvestments = [
-        { type: 'Growth Stocks', percentage: 50, marketInfo: marketConditions.stocks },
-        { type: 'Real Estate Investment Trusts', percentage: 20, marketInfo: marketConditions.realEstate },
-        { type: 'Cryptocurrency', percentage: 15, marketInfo: marketConditions.crypto },
-        { type: 'Mutual Funds', percentage: 15, marketInfo: marketConditions.mutualFunds }
-      ];
-    }
-    
-    // Adjust based on goal
-    if (goal === 'retirement' && horizon === 'long') {
-      // Increase stocks for long-term retirement
-      baseInvestments = baseInvestments.map(inv => {
-        if (inv.type.includes('Stocks') || inv.type.includes('Mutual Funds')) {
-          return { ...inv, percentage: Math.min(inv.percentage + 5, 100) };
-        } else if (inv.type.includes('Bonds') || inv.type.includes('Deposits')) {
-          return { ...inv, percentage: Math.max(inv.percentage - 5, 0) };
-        }
-        return inv;
-      });
-    } else if (goal === 'education' && horizon === 'medium') {
-      // More balanced for education
-      baseInvestments = baseInvestments.map(inv => {
-        if (inv.type.includes('Mutual Funds')) {
-          return { ...inv, percentage: Math.min(inv.percentage + 5, 100) };
-        } else if (inv.type.includes('Crypto')) {
-          return { ...inv, percentage: Math.max(inv.percentage - 5, 0) };
-        }
-        return inv;
-      });
-    } else if (goal === 'home' && horizon === 'short') {
-      // More conservative for home purchase
-      baseInvestments = baseInvestments.map(inv => {
-        if (inv.type.includes('Bonds') || inv.type.includes('Deposits')) {
-          return { ...inv, percentage: Math.min(inv.percentage + 10, 100) };
-        } else if (inv.type.includes('Stocks') || inv.type.includes('Crypto')) {
-          return { ...inv, percentage: Math.max(inv.percentage - 10, 0) };
-        }
-        return inv;
-      });
-    } else if (goal === 'emergency') {
-      // Very liquid and safe for emergency fund
-      baseInvestments = baseInvestments.map(inv => {
-        if (inv.type.includes('Deposits') || inv.type.includes('Bonds')) {
-          return { ...inv, percentage: Math.min(inv.percentage + 15, 100) };
-        } else if (inv.type.includes('Stocks') || inv.type.includes('Crypto') || inv.type.includes('Real Estate')) {
-          return { ...inv, percentage: Math.max(inv.percentage - 15, 0) };
-        }
-        return inv;
-      });
-    }
-    
-    // Normalize percentages to ensure they sum to 100%
-    const total = baseInvestments.reduce((sum, inv) => sum + inv.percentage, 0);
-    return baseInvestments.map(inv => ({
-      ...inv,
-      percentage: Math.round((inv.percentage / total) * 100)
-    }));
-  };
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [hasResults, setHasResults] = useState<boolean>(false);
+  const [isCustomizing, setIsCustomizing] = useState<boolean>(false);
+  const [customAllocations, setCustomAllocations] = useState<Record<string, number>>({});
+  const [marketData, setMarketData] = useState<any>(null);
+  const [bondYields, setBondYields] = useState<any>(null);
+  const [indianMarketData, setIndianMarketData] = useState<any>(null);
+  const [currencySymbol, setCurrencySymbol] = useState<string>('$');
+  const [error, setError] = useState<string | null>(null);
 
-  interface MarketInfo {
-    trend: string;
-    volatility: number;
-    historicalReturn: number;  // Add this property
-    // Any other properties you need
-  }
-  
-  type Investment = {
-    type: string;
-    percentage: number;
-    amountLocal: string;
-    amountUSD: string;
-    marketInfo: MarketInfo;
-  };
-  
-  // Define the investments array type
-  type Investments = Investment[];
-  // Calculate expected returns based on allocation and time horizon
-  const calculateExpectedReturns = (investments: Investments, horizon: TimeHorizon) => {
-    const years = horizon === 'short' ? 2 : horizon === 'medium' ? 5 : 10;
-    
-    const weightedAnnualReturn = investments.reduce((sum, inv) => {
-      const annualReturn = inv.marketInfo ? inv.marketInfo.historicalReturn : 3; // Default to 3% if no data
-      return sum + (annualReturn * (inv.percentage / 100));
-    }, 0);
-    
-    // Compound annual growth rate formula
-    const futureValue = (amount:number) => amount * Math.pow(1 + (weightedAnnualReturn / 100), years);
-    const totalGrowth = (amount:number) => futureValue(amount) - amount;
-    const annualizedReturn = weightedAnnualReturn.toFixed(2);
-    
-    return {
-      years,
-      annualizedReturn,
-      futureValue,
-      totalGrowth,
-      weightedAnnualReturn
-    };
-  };
-  
-  // Initialize custom allocations when investments change
-  const initCustomAllocations = (investments: Investments) => {
-    // Define the correct type for the object
-    const newCustomAllocations: Record<string, number> = {};
-    
-    investments.forEach(inv => {
-      newCustomAllocations[inv.type] = inv.percentage;
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: name === 'savingsAmount' ? parseFloat(value) : value
     });
-    
-    setCustomAllocations(newCustomAllocations);
   };
-  
-  // Handle slider change for custom allocations
-  const handleAllocationChange = (type: string, value: string | number) => {
-    const numericValue = typeof value === 'string' ? parseInt(value, 10) : value;
-    
+
+  // Handle risk tolerance selection
+  const handleRiskToleranceChange = (risk: string) => {
+    setFormData({
+      ...formData,
+      riskTolerance: risk
+    });
+  };
+
+  // Handle investment goal selection
+  const handleGoalChange = (goal: string) => {
+    setFormData({
+      ...formData,
+      investmentGoal: goal
+    });
+  };
+
+  // Handle time horizon selection
+  const handleTimeHorizonChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      timeHorizon: parseInt(e.target.value)
+    });
+  };
+
+  // Handle currency selection
+  const handleCurrencyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFormData({
+      ...formData,
+      currency: e.target.value
+    });
+    setCurrencySymbol(getCurrencySymbol(e.target.value));
+  };
+
+  // Handle allocation slider changes
+  const handleAllocationChange = (assetClass: string, value: number) => {
     setCustomAllocations({
       ...customAllocations,
-      [type]: numericValue
+      [assetClass]: value
     });
   };
-  
-  interface Recommendations {
-    investments: Investment[];
-    totalAmountLocal: number;
-    totalAmountUSD: number;
-    returns: ReturnEstimates;
-    isCustomized: boolean;
-    // Add other properties as needed
-  }
-
-  interface ReturnEstimates {
-    // Define properties for your return estimates
-    expected: number;
-    conservative: number;
-    aggressive: number;
-    // Add other properties as needed
-  }
- 
 
   // Apply custom allocations
   const applyCustomAllocations = () => {
-    // Check if allocations sum to 100%
-    const total = (Object.values(customAllocations) as number[]).reduce((sum, val) => sum + val, 0);
-    if (total !== 100) {
-      alert(`Total allocation must equal 100%. Current total: ${total}%`);
-      return;
+    // Here you would implement the logic to adjust allocations
+    // Normalize allocations to ensure they sum to 100%
+    const total = Object.values(customAllocations).reduce((sum, val) => sum + val, 0);
+    
+    if (total > 0) {
+      const normalizedAllocations = recommendations.map(rec => {
+        const newAlloc = customAllocations[rec.assetClass] || rec.allocation;
+        return {
+          ...rec,
+          allocation: Math.round((newAlloc / total) * 100)
+        };
+      });
+      
+      setRecommendations(normalizedAllocations);
     }
     
-    if (!recommendations) {
-      // Handle the null case - maybe show an error or return early
-      alert('No recommendations available');
-      return;
+    setIsCustomizing(false);
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await generateInvestmentRecommendations(formData);
+      
+      if (result.success) {
+        setRecommendations(result.recommendations);
+        setMarketData(result.marketData);
+        setBondYields(result.bondYields);
+        setIndianMarketData(result.indianMarketData);
+        setCurrencySymbol(result.currencySymbol);
+      } else {
+        setRecommendations(result.recommendations);
+        setCurrencySymbol(result.currencySymbol);
+        // Convert undefined to null to match the expected type
+        setError(result.error || null);
+      }
+      
+      setHasResults(true);
+      
+      // Initialize custom allocations with current recommendations
+      const initialCustomAllocations: Record<string, number> = {};
+      result.recommendations.forEach(rec => {
+        initialCustomAllocations[rec.assetClass] = rec.allocation;
+      });
+      setCustomAllocations(initialCustomAllocations);
+      
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+      console.error('Error generating recommendations:', err);
+    } finally {
+      setLoading(false);
     }
-  
-    // Update recommendations with custom allocations
-    const updatedInvestments: Investment[] = recommendations.investments.map((inv: Investment) => ({
-      ...inv,
-      percentage: customAllocations[inv.type] ?? 0, // Use nullish coalescing for safety
-      amountLocal: (recommendations.totalAmountLocal * (customAllocations[inv.type] ?? 0) / 100).toFixed(2),
-      amountUSD: (recommendations.totalAmountUSD * (customAllocations[inv.type] ?? 0) / 100).toFixed(2)
-    }));
-    
-    const updatedReturns = calculateExpectedReturns(updatedInvestments, horizon);
-    
-    setRecommendations({
-      ...recommendations,
-      investments: updatedInvestments,
-      returns: updatedReturns,
-      isCustomized: true
+  };
+
+  // Reset form and results
+  const handleReset = () => {
+    setFormData({
+      savingsAmount: 10000,
+      timeHorizon: 5,
+      riskTolerance: 'medium',
+      investmentGoal: 'wealth',
+      currency: 'inr'
     });
-    
-    setIsCustomizing(false);
+    setRecommendations([]);
+    setHasResults(false);
+    setIndianMarketData(null);
+    setCurrencySymbol('$');
+    setError(null);
   };
-  
-  // Generate investment recommendations based on inputs
-  const generateRecommendations = () => {
-    if (!savings || isNaN(parseFloat(savings))) {
-      alert('Please enter a valid savings amount');
-      return;
-    }
-    
-    const amountInLocalCurrency = parseFloat(savings);
-    // Convert to USD for calculations
-    const amountInUSD = amountInLocalCurrency * currencies[currency].rate;
-    
-    // Get base investments adjusted for goals and time horizon
-    const investments = getBaseInvestments(riskTolerance, investmentGoal, timeHorizon);
-    
-    // Calculate amounts based on percentages (in local currency)
-    const calculatedInvestments = investments.map(inv => ({
-      ...inv,
-      amountUSD: (amountInUSD * inv.percentage / 100).toFixed(2),
-      amountLocal: (amountInLocalCurrency * inv.percentage / 100).toFixed(2)
-    }));
-    
-    // Calculate expected returns
-    const returns = calculateExpectedReturns(calculatedInvestments, timeHorizon);
-    
-    // Find special opportunities based on market conditions
-    const opportunities = Object.entries(marketConditions)
-      .filter(([_, condition]) => condition.opportunity === 'high')
-      .map(([asset, condition]) => ({ asset, condition }));
-    
-    const newRecommendations = { 
-      investments: calculatedInvestments, 
-      opportunities, 
-      totalAmountUSD: amountInUSD,
-      totalAmountLocal: amountInLocalCurrency,
-      selectedCurrency: currency,
-      returns,
-      isCustomized: false,
-      goal: investmentGoal,
-      horizon: timeHorizon
+
+  // Calculate investment amounts based on allocations
+  const calculateAmount = (allocation: number) => {
+    return (formData.savingsAmount * allocation) / 100;
+  };
+
+  // Format currency for display
+  const displayCurrency = (amount: number) => {
+    return formatCurrency(amount, formData.currency);
+  };
+
+  // Get trend indicator (just for UI demonstration)
+  const getTrendIndicator = (assetClass: string): { trend: string, label: string } => {
+    // This could be dynamic based on API data in a real implementation
+    const trends: Record<string, { trend: string, label: string }> = {
+      'Fixed Deposits': { trend: 'stable', label: 'STABLE' },
+      'Government Bonds': { trend: 'down', label: 'DOWN' },
+      'Corporate Bonds': { trend: 'stable', label: 'STABLE' },
+      'High-yield Corporate Bonds': { trend: 'up', label: 'UP' },
+      'Blue-chip Stocks': { trend: 'up', label: 'UP' },
+      'Blue-chip Dividend Stocks': { trend: 'up', label: 'UP' },
+      'Index Funds': { trend: 'up', label: 'UP' },
+      'Index Funds/ETFs': { trend: 'up', label: 'UP' },
+      'Mid-cap Stocks': { trend: 'up', label: 'UP' },
+      'Small-cap Stocks': { trend: 'down', label: 'DOWN' },
+      'International Stocks': { trend: 'up', label: 'UP' },
+      'Gold': { trend: 'up', label: 'UP' },
+      'Short-term Government Bonds': { trend: 'down', label: 'DOWN' },
     };
-    
-    setRecommendations(newRecommendations);
-    initCustomAllocations(calculatedInvestments);
+
+    return trends[assetClass] || { trend: 'stable', label: 'STABLE' };
   };
-  
-  // Reset form
-  const resetForm = () => {
-    setSavings('');
-    setRiskTolerance('medium');
-    setInvestmentGoal('growth');
-    setTimeHorizon('medium');
-    setRecommendations(null);
-    setIsCustomizing(false);
-    setShowAdvancedOptions(false);
-  };
-  
-  // Format currency
-  const formatCurrency = (amount, currencyCode) => {
-    return `${currencies[currencyCode].symbol}${parseFloat(amount).toFixed(2)}`;
-  };
-  
+
   return (
     <div className="investment-advisor-container">
-  <h2 className="advisor-title">Investment Advisor</h2>
-  <p className="advisor-subtitle">Smart recommendations based on your goals and market conditions</p>
-  
-  {!recommendations ? (
-    <>
-      <div className="intro-panel">
-        <p className="intro-text">Tell us about your savings and investment preferences, and we'll recommend an investment strategy tailored to your needs and current market conditions.</p>
-      </div>
-      
-      <div className="form-container">
-        <div className="form-grid">
-          <div className="goal-column">
-            <label className="form-label">
-              Investment Goal
-            </label>
-            <div className="goal-options">
-              {Object.entries(investmentGoals).map(([key, goal]) => (
+      <h1 className="advisor-title">Smart Investment Advisor</h1>
+      <p className="advisor-subtitle">Personalized investment recommendations based on your financial goals and risk tolerance</p>
+
+      {!hasResults ? (
+        <div className="intro-panel">
+          <p className="intro-text">
+            Welcome to the Smart Investment Advisor. Answer a few questions about your financial goals,
+            risk tolerance, and investment horizon to receive personalized investment recommendations.
+            Our algorithm analyzes current market conditions and historical data to provide you with
+            optimal asset allocation strategies.
+          </p>
+        </div>
+      ) : null}
+
+      {!hasResults ? (
+        <form className="form-container" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div className="goal-column">
+              <label className="form-label">What is your investment goal?</label>
+              <div className="goal-options">
                 <div 
-                  key={key}
-                  className={`goal-option ${investmentGoal === key ? 'goal-option-selected' : ''}`}
-                  onClick={() => setInvestmentGoal(key)}
+                  className={`goal-option ${formData.investmentGoal === 'retirement' ? 'goal-option-selected' : ''}`}
+                  onClick={() => handleGoalChange('retirement')}
                 >
-                  <span className="goal-icon">{goal.icon}</span>
+                  <div className="goal-icon">🏖️</div>
                   <div>
-                    <h3 className="goal-name">{goal.name}</h3>
-                    <p className="goal-description">{goal.description}</p>
+                    <h4 className="goal-name">Retirement</h4>
+                    <p className="goal-description">Plan for your future retirement needs</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-          
-          <div className="timeframe-column">
-            <div className="time-horizon-container">
-              <label className="form-label">
-                Time Horizon
-              </label>
-              <select
-                className="form-select"
-                value={timeHorizon}
-                onChange={(e) => setTimeHorizon(e.target.value)}
-              >
-                {Object.entries(timeHorizons).map(([key, horizon]) => (
-                  <option key={key} value={key}>{horizon.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="risk-container">
-              <label className="form-label">
-                Risk Tolerance
-              </label>
-              <div className="risk-options">
                 <div 
-                  className={`risk-option ${riskTolerance === 'low' ? 'risk-low-selected' : ''}`}
-                  onClick={() => setRiskTolerance('low')}
+                  className={`goal-option ${formData.investmentGoal === 'education' ? 'goal-option-selected' : ''}`}
+                  onClick={() => handleGoalChange('education')}
                 >
-                  <h3 className="risk-level-name">Low</h3>
-                  <p className="risk-level-description">Safe returns</p>
+                  <div className="goal-icon">🎓</div>
+                  <div>
+                    <h4 className="goal-name">Education</h4>
+                    <p className="goal-description">Save for education expenses</p>
+                  </div>
                 </div>
                 <div 
-                  className={`risk-option ${riskTolerance === 'medium' ? 'risk-medium-selected' : ''}`}
-                  onClick={() => setRiskTolerance('medium')}
+                  className={`goal-option ${formData.investmentGoal === 'house' ? 'goal-option-selected' : ''}`}
+                  onClick={() => handleGoalChange('house')}
                 >
-                  <h3 className="risk-level-name">Medium</h3>
-                  <p className="risk-level-description">Balanced</p>
+                  <div className="goal-icon">🏠</div>
+                  <div>
+                    <h4 className="goal-name">House Purchase</h4>
+                    <p className="goal-description">Save for a down payment on a house</p>
+                  </div>
                 </div>
                 <div 
-                  className={`risk-option ${riskTolerance === 'high' ? 'risk-high-selected' : ''}`}
-                  onClick={() => setRiskTolerance('high')}
+                  className={`goal-option ${formData.investmentGoal === 'wealth' ? 'goal-option-selected' : ''}`}
+                  onClick={() => handleGoalChange('wealth')}
                 >
-                  <h3 className="risk-level-name">High</h3>
-                  <p className="risk-level-description">Growth focus</p>
+                  <div className="goal-icon">💰</div>
+                  <div>
+                    <h4 className="goal-name">Wealth Building</h4>
+                    <p className="goal-description">Grow your wealth over time</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="timeframe-column">
+              <div className="time-horizon-container">
+                <label className="form-label">What is your time horizon?</label>
+                <select 
+                  className="form-select" 
+                  name="timeHorizon" 
+                  value={formData.timeHorizon}
+                  onChange={handleTimeHorizonChange}
+                >
+                  <option value="1">1 year</option>
+                  <option value="2">2 years</option>
+                  <option value="3">3 years</option>
+                  <option value="5">5 years</option>
+                  <option value="7">7 years</option>
+                  <option value="10">10 years</option>
+                  <option value="15">15 years</option>
+                  <option value="20">20+ years</option>
+                </select>
+              </div>
+
+              <div className="risk-container">
+                <label className="form-label">What is your risk tolerance?</label>
+                <div className="risk-options">
+                  <div 
+                    className={`risk-option ${formData.riskTolerance === 'low' ? 'risk-low-selected' : ''}`}
+                    onClick={() => handleRiskToleranceChange('low')}
+                  >
+                    <h4 className="risk-level-name">Low</h4>
+                    <p className="risk-level-description">Protect capital, modest returns</p>
+                  </div>
+                  <div 
+                    className={`risk-option ${formData.riskTolerance === 'medium' ? 'risk-medium-selected' : ''}`}
+                    onClick={() => handleRiskToleranceChange('medium')}
+                  >
+                    <h4 className="risk-level-name">Medium</h4>
+                    <p className="risk-level-description">Balanced approach, moderate risk</p>
+                  </div>
+                  <div 
+                    className={`risk-option ${formData.riskTolerance === 'high' ? 'risk-high-selected' : ''}`}
+                    onClick={() => handleRiskToleranceChange('high')}
+                  >
+                    <h4 className="risk-level-name">High</h4>
+                    <p className="risk-level-description">Growth focus, higher volatility</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        
-        <div className="savings-grid">
-          <div className="savings-amount-container">
-            <label htmlFor="savings" className="form-label">
-              Available Savings Amount
-            </label>
-            <input
-              type="number"
-              id="savings"
-              className="form-input"
-              value={savings}
-              onChange={(e) => setSavings(e.target.value)}
-              placeholder="Enter amount"
-            />
+
+          <div className="savings-grid">
+            <div className="savings-amount-container">
+              <label className="form-label">How much are you planning to invest?</label>
+              <input 
+                type="number" 
+                className="form-input" 
+                name="savingsAmount" 
+                value={formData.savingsAmount}
+                onChange={handleInputChange}
+                min="1000"
+                placeholder="Enter amount"
+              />
+            </div>
+            <div className="currency-container">
+              <label className="form-label">Currency</label>
+              <select 
+                className="form-select"
+                name="currency"
+                value={formData.currency}
+                onChange={handleCurrencyChange}
+              >
+                <option value="usd">INR</option>
+                <option value="eur">USD</option>
+                <option value="gbp">EUR</option>
+                <option value="jpy">JPY</option>
+                <option value="cad">CAD</option>
+                <option value="inr">GBP</option>
+              </select>
+            </div>
           </div>
-          <div className="currency-container">
-            <label htmlFor="currency" className="form-label">
-              Currency
-            </label>
-            <select
-              id="currency"
-              className="form-select"
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-            >
-              {Object.entries(currencies).map(([code, { name }]) => (
-                <option key={code} value={code}>
-                  {code} - {name}
-                </option>
-              ))}
-            </select>
+
+          <button className="submit-button" type="submit" disabled={loading}>
+            {loading ? 'Generating Recommendations...' : 'Get Recommendations'}
+          </button>
+        </form>
+      ): (
+        <div className="results-section">
+          <div className="results-header">
+            <h2 className="results-title">Your Investment Recommendations</h2>
+            <div className="results-buttons">
+              <button className="reset-button" onClick={handleReset}>
+                <span>← Start Over</span>
+              </button>
+              <button className="print-button">
+                <span>Save PDF</span>
+              </button>
+            </div>
           </div>
-        </div>
-        
-        <button
-          className="submit-button"
-          onClick={generateRecommendations}
-        >
-          Get Investment Recommendations
-        </button>
-      </div>
-    </>
-  ) : (
-    <div>
-      <div className="results-header">
-        <h3 className="results-title">Your Personalized Investment Plan</h3>
-        <div className="results-buttons">
-          <button
-            className="reset-button"
-            onClick={resetForm}
-          >
-            New Plan
-          </button>
-          <button
-            className="print-button"
-            onClick={() => window.print()}
-          >
-            Print/Save
-          </button>
-        </div>
-      </div>
-      
-      <div className="summary-grid">
-        <div className="summary-card investment-summary">
-          <h4 className="card-title">Investment Summary</h4>
-          <p className="summary-text">
-            Amount: <span className="bold-text">
-              {formatCurrency(recommendations.totalAmountLocal, recommendations.selectedCurrency)}
-            </span>
-            {recommendations.selectedCurrency !== 'USD' && (
-              <span className="usd-conversion"> (approx. ${recommendations.totalAmountUSD.toFixed(2)} USD)</span>
-            )}
-          </p>
-          <p className="summary-text">Goal: <span className="bold-text">{investmentGoals[recommendations.goal].name}</span></p>
-          <p className="summary-text">Horizon: <span className="bold-text">{timeHorizons[recommendations.horizon].name}</span></p>
-          <p className="summary-text">Risk Profile: <span className="bold-text capitalize">{riskTolerance}</span></p>
-          {recommendations.isCustomized && (
-            <div className="custom-allocation-badge">Custom Allocation</div>
+
+          <div className="summary-grid">
+            <div className="summary-card">
+              <h3 className="card-title">Investment Summary</h3>
+              <p className="summary-text">
+                <span className="bold-text">Investment Amount:</span> ₹{formData.savingsAmount.toLocaleString()}
+              </p>
+              <p className="summary-text">
+                <span className="bold-text">Investment Goal:</span>{' '}
+                <span className="medium-text capitalize">{formData.investmentGoal}</span>
+              </p>
+              <p className="summary-text">
+                <span className="bold-text">Time Horizon:</span>{' '}
+                <span className="medium-text">{formData.timeHorizon} years</span>
+              </p>
+              <p className="summary-text">
+                <span className="bold-text">Risk Tolerance:</span>{' '}
+                <span className="medium-text capitalize">{formData.riskTolerance}</span>
+              </p>
+              {isCustomizing && (
+                <div className="custom-allocation-badge">Custom Allocation</div>
+              )}
+              <div className="disclaimer-text">
+                Recommendations are based on your inputs and current market conditions.
+              </div>
+            </div>
+
+            <div className="summary-card">
+              <h3 className="card-title returns-title">Projected Returns</h3>
+              <p className="summary-text">
+                <span className="bold-text">Estimated Annual Return:</span>{' '}
+                <span className="growth-text">7.5% - 10.2%</span>
+              </p>
+              <p className="summary-text">
+                <span className="bold-text">Projected Balance in {formData.timeHorizon} years:</span>{' '}
+                <span className="growth-text">
+                ₹{Math.round(formData.savingsAmount * Math.pow(1.085, formData.timeHorizon)).toLocaleString()}
+                </span>
+              </p>
+              <p className="summary-text">
+                <span className="bold-text">Projected Growth:</span>{' '}
+                <span className="growth-text">
+                ₹{Math.round(formData.savingsAmount * Math.pow(1.085, formData.timeHorizon) - formData.savingsAmount).toLocaleString()}
+                </span>
+              </p><div className="market-info-container">
+                <h3 className="card-title">Market Information</h3>
+                {marketData ? (
+                  <div className="market-info">
+                    <p className="summary-text">
+                      <span className="bold-text">S&P 500 Price:</span>{' '}
+                      <span className="medium-text">₹{parseFloat(marketData['Global Quote']?.['05. price'] || '0').toFixed(2)}</span>
+                    </p>
+                    <p className="summary-text">
+                      <span className="bold-text">Daily Change:</span>{' '}
+                      <span className={`${parseFloat(marketData['Global Quote']?.['09. change'] || '0') >= 0 ? 'growth-text' : 'loss-text'}`}>
+                        {parseFloat(marketData['Global Quote']?.['10. change percent'] || '0').toFixed(2)}%
+                      </span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="summary-text muted-text">Market data unavailable</p>
+                )}
+
+                {bondYields ? (
+                  <div className="bond-info">
+                    <p className="summary-text">
+                     
+
+                    </p>
+                  </div>
+                ) : (
+                  <p className="summary-text muted-text">Bond data unavailable</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="error-alert">
+              <p className="error-message">{error}</p>
+            </div>
           )}
-        </div>
-        
-        <div className="summary-card returns-summary">
-          <h4 className="card-title returns-title">Expected Returns</h4>
-          <p className="summary-text">Annual Return: <span className="bold-text">{recommendations.returns.annualizedReturn}%</span></p>
-          <p className="summary-text">
-            After {recommendations.returns.years} years: <span className="bold-text">
-              {formatCurrency(recommendations.returns.futureValue(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
-            </span>
-          </p>
-          <p className="summary-text">
-            Total Growth: <span className="growth-text">
-              {formatCurrency(recommendations.returns.totalGrowth(recommendations.totalAmountLocal), recommendations.selectedCurrency)}
-            </span>
-          </p>
-          <p className="disclaimer-text">*Based on historical performance, not guaranteed</p>
-        </div>
-        
-        <div className="summary-card market-insights">
-          <h4 className="card-title insights-title">Market Insights</h4>
-          <p className="insight-item">Inflation: <span className="medium-text">{economicIndicators.inflation}</span></p>
-          <p className="insight-item">Interest Rate: <span className="medium-text">{economicIndicators.interestRate}</span></p>
-          <p className="insight-item">GDP Growth: <span className="medium-text">{economicIndicators.gdpGrowth}</span></p>
-          <p className="insight-item">Market Sentiment: <span className="medium-text">{economicIndicators.marketSentiment}</span></p>
-          <p className="update-timestamp">Last updated: {economicIndicators.lastUpdated}</p>
-        </div>
-      </div>
-      
-      {recommendations.opportunities.length > 0 && (
-        <div className="opportunities-panel">
-          <h4 className="opportunities-title">Current Market Opportunities</h4>
-          <ul className="opportunities-list">
-            {recommendations.opportunities.map((opportunity, idx) => (
-              <li key={idx} className="opportunity-item">
-                <span className="opportunity-asset">{opportunity.asset}</span>: {opportunity.condition.description}
-              </li>
-            ))}
-          </ul>
+
+          <div className="recommendations-container">
+            <div className="recommendation-header">
+              <h3 className="section-title">Asset Allocation</h3>
+              {!isCustomizing ? (
+                <button className="customize-button" onClick={() => setIsCustomizing(true)}>Customize Allocation</button>
+              ) : (
+                <div className="allocation-actions">
+                  <button className="apply-button" onClick={applyCustomAllocations}>Apply Changes</button>
+                  <button className="cancel-button" onClick={() => setIsCustomizing(false)}>Cancel</button>
+                </div>
+              )}
+            </div>
+
+            <div className="recommendations-grid">
+              {recommendations.map((recommendation, index) => (
+                <div key={index} className="recommendation-card">
+                  <div className="recommendation-header">
+                    <h4 className="asset-class">{recommendation.assetClass}</h4>
+                    <div className={`trend-badge trend-${getTrendIndicator(recommendation.assetClass).trend}`}>
+                      {getTrendIndicator(recommendation.assetClass).label}
+                    </div>
+                  </div>
+
+                  <div className="allocation-container">
+                    {isCustomizing ? (
+                      <div className="allocation-slider-container">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={customAllocations[recommendation.assetClass] || recommendation.allocation}
+                          onChange={(e) => handleAllocationChange(recommendation.assetClass, parseInt(e.target.value))}
+                          className="allocation-slider"
+                        />
+                        <div className="allocation-value">
+                          {customAllocations[recommendation.assetClass] || recommendation.allocation}%
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="allocation-bar-container">
+                        <div 
+                          className="allocation-bar" 
+                          style={{ width: `${recommendation.allocation}%` }}
+                        ></div>
+                        <div className="allocation-value">{recommendation.allocation}%</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="investment-amount">
+                  ₹{calculateAmount(recommendation.allocation).toLocaleString()}
+                  </div>
+
+                  <div className="expected-return">
+                    <span className="return-label">Expected Return:</span>
+                    <span className="return-value">{recommendation.expectedReturn}</span>
+                  </div>
+
+                  <p className="recommendation-description">{recommendation.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="additional-info">
+            <h3 className="section-title">Investment Insights</h3>
+            <div className="insights-grid">
+              <div className="insight-card">
+                <h4 className="insight-title">Risk Assessment</h4>
+                <p className="insight-text">
+                  Your {formData.riskTolerance} risk portfolio is designed to balance potential returns with market volatility. 
+                  {formData.riskTolerance === 'low' && 'This conservative approach prioritizes capital preservation over aggressive growth.'}
+                  {formData.riskTolerance === 'medium' && 'This balanced approach aims for steady growth while managing downside risk.'}
+                  {formData.riskTolerance === 'high' && 'This growth-oriented approach accepts higher volatility for potentially greater returns.'}
+                </p>
+              </div>
+              <div className="insight-card">
+                <h4 className="insight-title">Goal Timeline</h4>
+                <p className="insight-text">
+                  Your {formData.timeHorizon}-year investment horizon for {formData.investmentGoal === 'wealth' ? 'wealth building' : formData.investmentGoal} 
+                  allows for {formData.timeHorizon < 5 ? 'shorter-term strategies focused on stability' : 'longer-term strategies that can weather market cycles'}. 
+                  We've aligned asset allocations with this timeframe.
+                </p>
+              </div>
+              <div className="insight-card">
+                <h4 className="insight-title">Diversification Benefits</h4>
+                <p className="insight-text">
+                  Your portfolio spreads investments across {recommendations.length} different asset classes, 
+                  reducing risk through diversification. This structure helps protect against sector-specific downturns.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="next-steps">
+            <h3 className="section-title">Next Steps</h3>
+            <div className="steps-grid">
+              <div className="step-card">
+                <div className="step-number">1</div>
+                <div className="step-content">
+                  <h4 className="step-title">Review Your Plan</h4>
+                  <p className="step-text">
+                    Take time to review the recommended allocations and adjust if needed using the customize option.
+                  </p>
+                </div>
+              </div>
+              <div className="step-card">
+                <div className="step-number">2</div>
+                <div className="step-content">
+                  <h4 className="step-title">Open Investment Accounts</h4>
+                  <p className="step-text">
+                    Set up brokerage accounts if you don't already have them. Consider tax-advantaged accounts when applicable.
+                  </p>
+                </div>
+              </div>
+              <div className="step-card">
+                <div className="step-number">3</div>
+                <div className="step-content">
+                  <h4 className="step-title">Implement & Monitor</h4>
+                  <p className="step-text">
+                    Make investments according to your plan and schedule regular reviews to rebalance as needed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="disclaimer-section">
+            <p className="disclaimer-heading">Important Disclaimer</p>
+            <p className="disclaimer-text">
+              This tool provides general investment recommendations based on the information you provided and current market data. 
+              These recommendations should not be considered financial advice. Past performance is not indicative of future results. 
+              Consider consulting with a qualified financial advisor before making investment decisions.
+            </p>
+          </div>
         </div>
       )}
-      
-      <div className="allocation-header">
-        <h4 className="allocation-title">Portfolio Allocation</h4>
-        {!isCustomizing ? (
-          <button
-            className="customize-button"
-            onClick={() => setIsCustomizing(true)}
-          >
-            Customize Allocation
-          </button>
-        ) : (
-          <div className="customize-actions">
-            <button
-              className="cancel-button"
-              onClick={() => setIsCustomizing(false)}
-            >
-              Cancel
-            </button>
-            <button
-              className="apply-button"
-              onClick={applyCustomAllocations}
-            >
-              Apply Changes
-            </button>
-          </div>
-        )}
-      </div>
-      
-      <div className="allocation-table-container">
-        <table className="allocation-table">
-          <thead className="table-header">
-            <tr>
-              <th className="table-heading">Investment Type</th>
-              <th className="table-heading">Allocation</th>
-              <th className="table-heading">Amount ({currencies[recommendations.selectedCurrency].symbol})</th>
-              <th className="table-heading">Est. Annual Return</th>
-              <th className="table-heading">Market Trend</th>
-            </tr>
-          </thead>
-          <tbody className="table-body">
-            {recommendations.investments.map((investment, idx) => (
-              <tr key={idx} className="table-row">
-                <td className="cell investment-type">{investment.type}</td>
-                <td className="cell allocation-cell">
-                  {isCustomizing ? (
-                    <div className="allocation-slider-container">
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={customAllocations[investment.type]}
-                        onChange={(e) => handleAllocationChange(investment.type, e.target.value)}
-                        className="allocation-slider"
-                      />
-                      <span className="allocation-percentage">{customAllocations[investment.type]}%</span>
-                    </div>
-                  ) : (
-                    `${investment.percentage}%`
-                  )}
-                </td>
-                <td className="cell amount-cell">
-                  {formatCurrency(investment.amountLocal, recommendations.selectedCurrency)}
-                </td>
-                <td className="cell return-cell">
-                  {investment.marketInfo ? `${investment.marketInfo.historicalReturn}%` : 'N/A'}
-                </td>
-                <td className="cell trend-cell">
-                  {investment.marketInfo ? (
-                    <span className={`trend-badge trend-${investment.marketInfo.trend}`}>
-                      {investment.marketInfo.trend.charAt(0).toUpperCase() + investment.marketInfo.trend.slice(1)}
-                    </span>
-                  ) : '-'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="disclaimer-section">
-        <h4 className="disclaimer-heading">Important Information</h4>
-        <p className="disclaimer-paragraph">These recommendations are based on current market conditions and your specified preferences. Past performance does not guarantee future results.</p>
-        <p className="disclaimer-paragraph">Consider consulting with a financial advisor before making investment decisions. The expected returns are projections based on historical data and actual results may vary.</p>
-        <p className="disclaimer-paragraph">Risk Warning: Investments can go up and down in value, and you may get back less than you invest.</p>
-      </div>
     </div>
-  )}
-</div>
   );
 };
 
-export default InvestmentRecommender;
+export default InvestmentAdvisor;

@@ -1,6 +1,7 @@
 // The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 'use client';
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 const Transfer: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<'contacts' | 'manual'>('contacts');
@@ -10,7 +11,20 @@ const Transfer: React.FC = () => {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState<string | null>(null);
   const [manualRecipient, setManualRecipient] = useState({ name: '', accountNumber: '' });
+ const [mounted, setMounted] = useState(false);
 
+  // Fix for NextRouter issue by ensuring component only renders after mounting
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const router = useRouter();
+
+  const handleOptionClick = (path: string) => {
+    if (mounted) {
+      router.push(path);
+    }
+  };
   const contacts = [
     { id: 1, name: 'Emma Thompson', accountNumber: '**** 4582', avatar: 'https://public.readdy.ai/ai/img_res/6b95bc1ed239fdb2cab22b34351b8688.jpg' },
     { id: 2, name: 'Michael Chen', accountNumber: '**** 7891', avatar: 'https://public.readdy.ai/ai/img_res/769bbc4b34c953143fb3a7d50facd3ad.jpg' },
@@ -44,11 +58,13 @@ const Transfer: React.FC = () => {
         <header className="flex justify-between items-center mb-8">
           <div className="flex items-center gap-4">
             <a 
-              href="https://readdy.ai/home/bbab4429-1404-4fc5-9164-78c5c802e19a/fdeb71e2-cca0-4dbc-a9a1-4a4dff233b74" 
+              onClick={() => handleOptionClick('/UserDashboard')}
               data-readdy="true"
               className="text-[#00F0FF] hover:text-[#B026FF] transition-colors cursor-pointer"
             >
-              <i className="fas fa-arrow-left mr-2"></i>
+              <i
+                
+              className="fas fa-arrow-left mr-2"></i>
               Back to Dashboard
             </a>
             <div className="text-2xl font-bold bg-gradient-to-r from-[#00F0FF] to-[#B026FF] bg-clip-text text-transparent">

@@ -8,7 +8,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ heroBackgroundUrl }) => {
-  const router = useRouter();  const handleOptionClick = (path: string) => {
+  const router = useRouter();
+    const handleOptionClick = (path: string) => {
     router.push(path);
   };
   return (
@@ -45,7 +46,9 @@ const Header: React.FC<HeaderProps> = ({ heroBackgroundUrl }) => {
               Experience the future of finance with AI-powered insights, seamless transactions, and unparalleled security.
             </p>
             <div className="flex gap-4">
-              <button className="bg-[#BA01FF] px-8 py-3 font-semibold hover:bg-[#32FFBD] transition-colors cursor-pointer whitespace-nowrap !rounded-button">
+              <button
+                onClick={() => handleOptionClick('/Login')}
+              className="bg-[#BA01FF] px-8 py-3 font-semibold hover:bg-[#32FFBD] transition-colors cursor-pointer whitespace-nowrap !rounded-button">
                 Get Started
               </button>
               <button className="border-2 border-[#00F0FF] px-8 py-3 font-semibold hover:bg-[#00F0FF] hover:text-black transition-all cursor-pointer whitespace-nowrap !rounded-button">
