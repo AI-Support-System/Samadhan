@@ -45,8 +45,8 @@ const currencySymbols = {
   cad: 'C$'
 } as CurrencySymbols;
 // API keys would typically be stored in environment variables
-const ALPHA_VANTAGE_API_KEY = '1XTLH7X6ECFXSWMK';
-const FMP_API_KEY = 'mNQ5GnlquDQT5Q7DfXYfofDgkhK5Mqod';
+const ALPHA_VANTAGE_API_KEY = process.env.NEXT_PUBLIC_ALPHA_VANTAGE_API_KEY;
+const FMP_API_KEY = process.env.NEXT_PUBLIC_FMP_API_KEY;
 
 // Fetch market data from Alpha Vantage
 export const fetchMarketData = async () => {

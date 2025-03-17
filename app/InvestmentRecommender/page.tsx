@@ -323,12 +323,12 @@ const InvestmentAdvisor: React.FC = () => {
                 value={formData.currency}
                 onChange={handleCurrencyChange}
               >
-                <option value="usd">INR</option>
+                <option value="usd">GBP</option>
                 <option value="eur">USD</option>
                 <option value="gbp">EUR</option>
                 <option value="jpy">JPY</option>
                 <option value="cad">CAD</option>
-                <option value="inr">GBP</option>
+                <option value="inr">INR</option>
               </select>
             </div>
           </div>
