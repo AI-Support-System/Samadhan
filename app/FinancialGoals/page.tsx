@@ -1,438 +1,463 @@
-// The exported code uses Tailwind CSS. Install Tailwind CSS in your dev environment to ensure all styles work.
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import * as echarts from 'echarts';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination, Autoplay } from 'swiper/modules';
-import "@fortawesome/fontawesome-free/css/all.min.css";
-const App: React.FC = () => {
-const [selectedGoal, setSelectedGoal] = useState<string>('all');
-const [showNewGoalModal, setShowNewGoalModal] = useState(false);
-const [goals, setGoals] = useState([
-  {
-    id: 1,
-    name: 'Home Purchase',
-    target: 40000000,
-    current: 12000000,
-    monthly: 200000,
-    completion: '2027-06',
-    progress: 30,
-    type: 'home',
-    imageUrl: 'https://public.readdy.ai/ai/img_res/d5b1462aa1b3764da64bf2dc3c46494d.jpg'
-  },
-  {
-    id: 2,
-    name: 'Retirement Fund',
-    target: 150000000,
-    current: 60000000,
-    monthly: 400000,
-    completion: '2045-12',
-    progress: 40,
-    type: 'retirement',
-    imageUrl: 'https://public.readdy.ai/ai/img_res/8b0786e4c8176c7844fdf1fb8cd856eb.jpg'
-  },
-  {
-    id: 3,
-    name: 'Emergency Fund',
-    target: 3000000,
-    current: 2100000,
-    monthly: 75000,
-    completion: '2025-12',
-    progress: 70,
-    type: 'emergency',
-    imageUrl: 'https://public.readdy.ai/ai/img_res/42e2e23284437fb6098390c234c29e71.jpg'
-  }
-]);
-const [newGoal, setNewGoal] = useState({
-  name: '',
-  target: '',
-  completion: '',
-  monthly: '',
-  type: 'home',
-  imageUrl: 'https://readdy.ai/api/search-image?query=modern minimalist house with clean lines and large windows set against a dark moody background perfect for financial website hero section professional real estate photography&width=400&height=300&seq=4&orientation=landscape'
-});
-const [formErrors, setFormErrors] = useState({
-name: '',
-target: '',
-completion: '',
-monthly: ''
-});
-const validateForm = () => {
-const errors = {
-name: '',
-target: '',
-completion: '',
-monthly: ''
-};
-let isValid = true;
-if (!newGoal.name.trim()) {
-errors.name = 'Goal name is required';
-isValid = false;
-}
-if (!newGoal.target || Number(newGoal.target) <= 0) {
-errors.target = 'Valid target amount is required';
-isValid = false;
-}
-if (!newGoal.completion) {
-errors.completion = 'Target date is required';
-isValid = false;
-}
-if (!newGoal.monthly || Number(newGoal.monthly) <= 0) {
-errors.monthly = 'Valid monthly contribution is required';
-isValid = false;
-}
-setFormErrors(errors);
-return isValid;
-};
-const handleSubmit = () => {
-  if (validateForm()) {
-    const newGoalObj = {
-      id: goals.length + 1,
-      name: newGoal.name,
-      target: Number(newGoal.target),
-      current: 0,
-      monthly: Number(newGoal.monthly),
-      completion: newGoal.completion,
-      progress: 0,
-      type: newGoal.type,
-      imageUrl: newGoal.imageUrl
-    };
-    setGoals([...goals, newGoalObj]);
-    setShowNewGoalModal(false);
-    setNewGoal({
-      name: '',
-      target: '',
-      completion: '',
-      monthly: '',
-      type: 'home',
-      imageUrl: 'https://readdy.ai/api/search-image?query=modern minimalist house with clean lines and large windows set against a dark moody background perfect for financial website hero section professional real estate photography&width=400&height=300&seq=4&orientation=landscape'
-    });
-  }
-};
-const retirementChartRef = useRef<HTMLDivElement>(null);
-const savingsChartRef = useRef<HTMLDivElement>(null);
-const budgetChartRef = useRef<HTMLDivElement>(null);
+import React, { useState } from "react";
+import * as echarts from "echarts";
 
-useEffect(() => {
-if (retirementChartRef.current) {
-const chart = echarts.init(retirementChartRef.current);
-const option = {
-animation: false,
-title: {
-text: 'Retirement Projection',
-textStyle: {
-color: '#333',
-fontSize: 16
-}
-},
-tooltip: {
-trigger: 'axis'
-},
-xAxis: {
-type: 'category',
-data: ['2025', '2030', '2035', '2040', '2045', '2050']
-},
-yAxis: {
-type: 'value',
-name: 'Amount ($)',
-axisLabel: {
-formatter: (value: number) => `₹${(value/100000).toFixed(1)}L`
-}
-},
-series: [
-{
-name: 'Conservative',
-type: 'line',
-data: [8000000, 12000000, 16000000, 20000000, 25000000, 30000000],
-lineStyle: { color: '#4CAF50' }
-},
-{
-name: 'Moderate',
-type: 'line',
-data: [8000000, 14000000, 20000000, 28000000, 36000000, 45000000],
-lineStyle: { color: '#2196F3' }
-}
-]
+const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState("all");
+  const [showContributeModal, setShowContributeModal] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState("");
+  const [contributionAmount, setContributionAmount] = useState("");
+  const [selectedGoalId, setSelectedGoalId] = useState<number | null>(null);
+  const [goals, setGoals] = useState([
+    {
+      id: 1,
+      title: "Home Purchase",
+      target: 40000000,
+      monthly: 200000,
+      complete: 30,
+      currentAmount: 12000000,
+      image:
+        "https://public.readdy.ai/ai/img_res/d7ff4a606edd9f32ce7333431486d138.jpg",
+    },
+    {
+      id: 2,
+      title: "Retirement Fund",
+      target: 150000000,
+      monthly: 400000,
+      complete: 40,
+      currentAmount: 60000000,
+      image:
+        "https://public.readdy.ai/ai/img_res/eba32d19a361fff32904ab46f32d2cab.jpg",
+    },
+    {
+      id: 3,
+      title: "Emergency Fund",
+      target: 3000000,
+      monthly: 75000,
+      complete: 70,
+      currentAmount: 2100000,
+      image:
+        "https://public.readdy.ai/ai/img_res/72e9b40cef7d6c7ca36ad2ab684aa82e.jpg",
+    },
+  ]);
+
+  const handleContribute = (goalId: number, goalTitle: string) => {
+    setSelectedGoal(goalTitle);
+    setSelectedGoalId(goalId);
+    setShowContributeModal(true);
+  };
+
+  const handleSubmitContribution = () => {
+    if (selectedGoalId && contributionAmount) {
+      const amount = parseFloat(contributionAmount);
+      if (!isNaN(amount)) {
+        setGoals(
+          goals.map((goal) => {
+            if (goal.id === selectedGoalId) {
+              const newCurrentAmount = goal.currentAmount + amount;
+              const newComplete = Math.min(
+                Math.round((newCurrentAmount / goal.target) * 100),
+                100
+              );
+              return {
+                ...goal,
+                currentAmount: newCurrentAmount,
+                complete: newComplete,
+              };
+            }
+            return goal;
+          })
+        );
+      }
+    }
+    setShowContributeModal(false);
+    setContributionAmount("");
+    setSelectedGoalId(null);
+  };
+
+  React.useEffect(() => {
+    // Initialize charts only after DOM elements are available
+    const initializeCharts = () => {
+      try {
+        // Initialize monthly budget chart
+        const budgetChartEl = document.getElementById("budget-chart");
+        if (budgetChartEl) {
+          const budgetChart = echarts.init(budgetChartEl);
+          const budgetOption = {
+            animation: false,
+            tooltip: {
+              trigger: "axis",
+              axisPointer: {
+                type: "shadow",
+              },
+            },
+            legend: {
+              data: ["Budget", "Actual"],
+              textStyle: {
+                color: "#fff",
+              },
+            },
+            grid: {
+              left: "3%",
+              right: "4%",
+              bottom: "3%",
+              containLabel: true,
+            },
+            xAxis: {
+              type: "value",
+              axisLabel: {
+                color: "#fff",
+                formatter: (value: number) => `₹${value / 1000}K`,
+              },
+            },
+            yAxis: {
+              type: "category",
+              data: [
+                "Entertainment",
+                "Utilities",
+                "Food",
+                "Transportation",
+                "Housing",
+              ],
+              axisLabel: {
+                color: "#fff",
+              },
+            },
+            series: [
+              {
+                name: "Budget",
+                type: "bar",
+                data: [30000, 45000, 80000, 60000, 200000],
+                itemStyle: {
+                  color: "#4ade80",
+                },
+              },
+              {
+                name: "Actual",
+                type: "bar",
+                data: [35000, 42000, 75000, 55000, 220000],
+                itemStyle: {
+                  color: "#3b82f6",
+                },
+              },
+            ],
+          };
+          budgetChart.setOption(budgetOption);
+          
+          // Make chart responsive
+          window.addEventListener('resize', () => {
+            budgetChart.resize();
+          });
+        }
+
+        // Initialize retirement projection chart
+        const retirementChartEl = document.getElementById("retirement-chart");
+        if (retirementChartEl) {
+          const retirementChart = echarts.init(retirementChartEl);
+          const retirementOption = {
+            animation: false,
+            grid: {
+              left: "10%",
+              right: "5%",
+              top: "10%",
+              bottom: "15%",
+            },
+            xAxis: {
+              type: "category",
+              data: ["2025", "2030", "2035", "2040", "2045"],
+              axisLabel: { color: "#fff" },
+            },
+            yAxis: {
+              type: "value",
+              name: "Amount (₹)",
+              axisLabel: { color: "#fff" },
+            },
+            series: [
+              {
+                data: [1000000, 2000000, 3000000, 4000000, 4500000],
+                type: "line",
+                smooth: true,
+                lineStyle: { color: "#3b82f6" },
+              },
+            ],
+          };
+          retirementChart.setOption(retirementOption);
+          
+          // Make chart responsive
+          window.addEventListener('resize', () => {
+            retirementChart.resize();
+          });
+        }
+
+        // Initialize monthly savings analysis chart
+        const savingsChartEl = document.getElementById("savings-chart");
+        if (savingsChartEl) {
+          const savingsChart = echarts.init(savingsChartEl);
+          const savingsOption = {
+            animation: false,
+            tooltip: {
+              trigger: "item",
+            },
+            series: [
+              {
+                name: "Monthly Savings",
+                type: "pie",
+                radius: ["40%", "70%"],
+                itemStyle: {
+                  borderRadius: 10,
+                  borderColor: "#fff",
+                  borderWidth: 2,
+                },
+                label: {
+                  color: "#fff",
+                },
+                data: [
+                  { value: 40, name: "Home Fund" },
+                  { value: 30, name: "Travel" },
+                  { value: 20, name: "Emergency" },
+                  { value: 10, name: "Others" },
+                ],
+              },
+            ],
+          };
+          savingsChart.setOption(savingsOption);
+          
+          // Make chart responsive
+          window.addEventListener('resize', () => {
+            savingsChart.resize();
+          });
+          
+          return () => {
+            if (budgetChartEl) {
+              echarts.getInstanceByDom(budgetChartEl)?.dispose();
+            }
+            if (retirementChartEl) {
+              echarts.getInstanceByDom(retirementChartEl)?.dispose();
+            }
+            if (savingsChartEl) {
+              echarts.getInstanceByDom(savingsChartEl)?.dispose();
+            }
+          };
+        }
+      } catch (error) {
+        console.error("Error initializing charts:", error);
+      }
+    };
+
+    // Initialize charts after a small delay to ensure DOM elements are available
+    const timer = setTimeout(() => {
+      initializeCharts();
+    }, 100);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="w-full px-3 sm:px-4 lg:max-w-7xl lg:mx-auto">
+        <header className="py-4 sm:py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-8 w-full sm:w-auto">
+            <img
+              src="https://public.readdy.ai/ai/img_res/aa254986b68142823a41d4d787f71588.jpg"
+              alt="Logo"
+              className="h-6 sm:h-8"
+            />
+            <nav className="flex space-x-3 sm:space-x-6 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0">
+              <button className="text-gray-300 hover:text-white text-sm sm:text-base whitespace-nowrap">
+                Overview
+              </button>
+              <button className="text-gray-300 hover:text-white text-sm sm:text-base whitespace-nowrap">
+                Savings
+              </button>
+              <button className="text-gray-300 hover:text-white text-sm sm:text-base whitespace-nowrap">
+                Expenses
+              </button>
+            </nav>
+          </div>
+          <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center space-x-2 text-sm sm:text-base w-full sm:w-auto justify-center">
+            <i className="fas fa-plus"></i>
+            <span>New Goal</span>
+          </button>
+        </header>
+        
+        <div className="my-4 sm:my-8">
+          <div className="flex flex-wrap gap-2 sm:gap-4 mb-6 sm:mb-8">
+            <button
+              onClick={() => setActiveTab("all")}
+              className={`px-3 sm:px-6 py-2 rounded-lg text-sm sm:text-base ${
+                activeTab === "all" ? "bg-blue-600" : "bg-gray-800"
+              }`}
+            >
+              All Goals
+            </button>
+            <button
+              onClick={() => setActiveTab("active")}
+              className={`px-3 sm:px-6 py-2 rounded-lg text-sm sm:text-base ${
+                activeTab === "active" ? "bg-blue-600" : "bg-gray-800"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setActiveTab("completed")}
+              className={`px-3 sm:px-6 py-2 rounded-lg text-sm sm:text-base ${
+                activeTab === "completed" ? "bg-blue-600" : "bg-gray-800"
+              }`}
+            >
+              Completed
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {goals.map((goal) => (
+              <div
+                key={goal.id}
+                className="bg-gray-800 rounded-xl overflow-hidden"
+              >
+                <div className="h-36 sm:h-48 relative overflow-hidden">
+                  <img
+                    src={goal.image}
+                    alt={goal.title}
+                    className="w-full h-full object-cover object-top"
+                  />
+                </div>
+                <div className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h3 className="text-lg sm:text-xl font-semibold">{goal.title}</h3>
+                    <button
+                      onClick={() => handleContribute(goal.id, goal.title)}
+                      className="bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm rounded-lg whitespace-nowrap w-full sm:w-auto text-center"
+                    >
+                      Contribute
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs sm:text-sm mb-1">
+                        <span>Current</span>
+                        <span>₹{goal.currentAmount.toLocaleString()}</span>
+                      </div>
+                      <div className="h-2 bg-gray-700 rounded-full mb-2">
+                        <div
+                          className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                          style={{ width: `${goal.complete}%` }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between text-xs sm:text-sm mb-1">
+                        <span>Target</span>
+                        <span>₹{goal.target.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm text-gray-400 gap-2 sm:gap-0">
+                      <div className="flex items-center">
+                        <span>Monthly:</span>
+                        <span className="ml-2">
+                          ₹{goal.monthly.toLocaleString()}
+                        </span>
+                      </div>
+                      <span>{goal.complete}% Complete</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          <div className="mt-6 sm:mt-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
+                  Retirement Projection
+                </h3>
+                <div id="retirement-chart" className="w-full h-60 sm:h-80"></div>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
+                  Monthly Savings Analysis
+                </h3>
+                <div id="savings-chart" className="w-full h-60 sm:h-80"></div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 mb-4 sm:mb-8">
+              <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Monthly Budget</h3>
+              <div id="budget-chart" className="w-full h-60 sm:h-80"></div>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-semibold mb-2">Total Savings</h4>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-500">₹2,450,000</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-2">
+                  +12.5% from last month
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-semibold mb-2">Monthly Income</h4>
+                <p className="text-2xl sm:text-3xl font-bold text-green-500">₹180,000</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-2">
+                  Next payment in 12 days
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-semibold mb-2">Monthly Expenses</h4>
+                <p className="text-2xl sm:text-3xl font-bold text-red-500">₹85,000</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-2">
+                  -5.2% from last month
+                </p>
+              </div>
+              <div className="bg-gray-800 rounded-xl p-4 sm:p-6">
+                <h4 className="text-base sm:text-lg font-semibold mb-2">
+                  Investment Returns
+                </h4>
+                <p className="text-2xl sm:text-3xl font-bold text-purple-500">₹45,000</p>
+                <p className="text-xs sm:text-sm text-gray-400 mt-2">+8.3% this quarter</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {showContributeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-xl p-4 sm:p-6 w-full max-w-xs sm:max-w-md">
+            <h3 className="text-lg sm:text-xl font-semibold mb-4">
+              Contribute to {selectedGoal}
+            </h3>
+            <div className="relative mb-4">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                ₹
+              </span>
+              <input
+                type="text"
+                value={contributionAmount}
+                onChange={(e) => setContributionAmount(e.target.value)}
+                className="w-full bg-gray-700 rounded-lg py-2 pl-3 pr-8 text-white text-sm sm:text-base"
+                placeholder="Enter amount"
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <button
+                onClick={handleSubmitContribution}
+                className="bg-blue-600 hover:bg-blue-700 py-2 rounded-lg text-sm sm:text-base w-full"
+              >
+                Contribute
+              </button>
+              <button
+                onClick={() => setShowContributeModal(false)}
+                className="bg-gray-700 hover:bg-gray-600 py-2 rounded-lg text-sm sm:text-base w-full"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
-chart.setOption(option);
-}
-if (savingsChartRef.current) {
-const chart = echarts.init(savingsChartRef.current);
-const option = {
-animation: false,
-backgroundColor: '#1f2937',
-title: {
-text: 'Monthly Savings Analysis',
-textStyle: {
-color: '#f3f4f6',
-fontSize: 16
-}
-},
-tooltip: {
-trigger: 'item'
-},
-series: [
-{
-name: 'Savings Distribution',
-type: 'pie',
-radius: ['40%', '70%'],
-data: [
-{ value: 250000, name: 'Home Fund' },
-{ value: 500000, name: 'Retirement' },
-{ value: 100000, name: 'Emergency' },
-{ value: 150000, name: 'Travel' }
-],
-emphasis: {
-itemStyle: {
-shadowBlur: 10,
-shadowOffsetX: 0,
-shadowColor: 'rgba(0, 0, 0, 0.5)'
-}
-}
-}
-]
-};
-chart.setOption(option);
-}
-if (budgetChartRef.current) {
-const chart = echarts.init(budgetChartRef.current);
-const option = {
-animation: false,
-title: {
-text: 'Budget Overview',
-textStyle: {
-color: '#333',
-fontSize: 16
-}
-},
-tooltip: {
-trigger: 'axis',
-axisPointer: {
-type: 'shadow'
-}
-},
-xAxis: {
-type: 'value',
-axisLabel: {
-formatter: (value: number) => `₹${(value/1000).toFixed(0)}K`,
-color: '#f3f4f6'
-}
-},
-yAxis: {
-type: 'category',
-data: ['Housing', 'Transportation', 'Food', 'Utilities', 'Entertainment']
-},
-series: [
-{
-name: 'Budget',
-type: 'bar',
-data: [250000, 50000, 80000, 40000, 30000],
-itemStyle: {
-color: '#4CAF50'
-}
-},
-{
-name: 'Actual',
-type: 'bar',
-data: [240000, 45000, 75000, 38000, 35000],
-itemStyle: {
-color: '#2196F3'
-}
-}
-]
-};
-chart.setOption(option);
-}
-}, []);
-return (
-<div className="min-h-screen bg-gray-900 text-gray-100">
-{/* Header */}
-<header className="bg-gray-800 shadow-lg">
-<div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-<div className="flex items-center space-x-8">
-<h1 className="text-2xl font-bold text-gray-100">Personal Finance</h1>
-<nav className="hidden md:flex space-x-6">
-<button className="text-gray-300 hover:text-white whitespace-nowrap cursor-pointer !rounded-button">Overview</button>
-<button className="text-gray-300 hover:text-white whitespace-nowrap cursor-pointer !rounded-button">Savings</button>
-<button className="text-gray-300 hover:text-white whitespace-nowrap cursor-pointer !rounded-button">Expenses</button>
-</nav>
-</div>
-<div className="flex items-center space-x-4">
-<button
-className="bg-blue-600 text-white px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer"
-onClick={() => setShowNewGoalModal(true)}
->
-<i className="fas fa-plus mr-2"></i>New Goal
-</button>
-<button className="text-gray-700 hover:text-gray-900 cursor-pointer">
-<i className="fas fa-bell text-xl"></i>
-</button>
-<button className="text-gray-700 hover:text-gray-900 cursor-pointer">
-<i className="fas fa-user-circle text-xl"></i>
-</button>
-</div>
-</div>
-</header>
-<main className="max-w-7xl mx-auto px-4 py-8">
-{/* Goals Overview */}
-<section className="mb-12">
-<div className="flex items-center justify-between mb-6">
-<h2 className="text-xl font-semibold text-gray-900">Financial Goals</h2>
-<div className="flex space-x-4">
-<button
-className={`px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer ${selectedGoal === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-onClick={() => setSelectedGoal('all')}
->
-All Goals
-</button>
-<button
-className={`px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer ${selectedGoal === 'active' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-onClick={() => setSelectedGoal('active')}
->
-Active
-</button>
-<button
-className={`px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer ${selectedGoal === 'completed' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-onClick={() => setSelectedGoal('completed')}
->
-Completed
-</button>
-</div>
-</div>
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-{goals.map(goal => (
-<div key={goal.id} className="bg-gray-800 rounded-lg shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow border border-gray-700">
-<div className="relative h-40 mb-4 rounded-lg overflow-hidden">
-<img src={goal.imageUrl} alt={goal.name} className="w-full h-full object-cover object-top" />
-</div>
-<h3 className="text-lg font-semibold text-gray-100 mb-2">{goal.name}</h3>
-<div className="flex justify-between items-center mb-2">
-<span className="text-sm text-gray-400">Target</span>
-<span className="font-medium">₹{(goal.target/10000000).toFixed(2)} Cr</span>
-</div>
-<div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-<div
-className="bg-blue-600 h-2 rounded-full"
-style={{ width: `${goal.progress}%` }}
-></div>
-</div>
-<div className="flex justify-between items-center text-sm text-gray-600">
-<span>Monthly: ₹{goal.monthly.toLocaleString()}</span>
-<span>{goal.progress}% Complete</span>
-</div>
-</div>
-))}
-</div>
-</section>
-{/* Charts Section */}
-<section className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-<div className="bg-white p-6 rounded-lg shadow-sm">
-<div ref={retirementChartRef} style={{ height: '400px' }}></div>
-</div>
-<div className="bg-white p-6 rounded-lg shadow-sm">
-<div ref={savingsChartRef} style={{ height: '400px' }}></div>
-</div>
-</section>
-{/* Budget Overview */}
-<section className="bg-gray-800 p-6 rounded-lg shadow-lg mb-12 border border-gray-700">
-<h2 className="text-xl font-semibold text-gray-100 mb-6">Monthly Budget</h2>
-<div ref={budgetChartRef} style={{ height: '400px' }}></div>
-</section>
-{/* Quick Actions Sidebar */}
-<aside className="fixed right-0 top-0 h-screen w-64 bg-gray-800 shadow-lg transform translate-x-64 transition-transform duration-200 ease-in-out border-l border-gray-700">
-<div className="p-6">
-<h3 className="text-lg font-semibold text-gray-100 mb-4">Quick Actions</h3>
-<div className="space-y-4">
-<button className="w-full bg-blue-600 text-white px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer">
-<i className="fas fa-plus mr-2"></i>Add Funds
-</button>
-<button className="w-full bg-gray-100 text-gray-700 px-4 py-2 !rounded-button whitespace-nowrap cursor-pointer">
-<i className="fas fa-edit mr-2"></i>Edit Goals
-</button>
-</div>
-</div>
-</aside>
-</main>
-{/* New Goal Modal */}
-{showNewGoalModal && (
-<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-<div className="bg-gray-800 rounded-lg p-8 w-full max-w-md border border-gray-700">
-<div className="flex justify-between items-center mb-6">
-<h3 className="text-xl font-semibold text-gray-100">Create New Goal</h3>
-<button
-className="text-gray-400 hover:text-gray-200"
-onClick={() => setShowNewGoalModal(false)}
->
-<i className="fas fa-times"></i>
-</button>
-</div>
-<div className="space-y-4">
-<div>
-<label className="block text-sm font-medium text-gray-300 mb-1">Goal Name</label>
-<input
-type="text"
-className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
-value={newGoal.name}
-onChange={(e) => setNewGoal({...newGoal, name: e.target.value})}
-/>
-{formErrors.name && <p className="mt-1 text-sm text-red-500">{formErrors.name}</p>}
-</div>
-<div>
-<label className="block text-sm font-medium text-gray-300 mb-1">Target Amount (₹)</label>
-<input
-type="number"
-className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
-value={newGoal.target}
-onChange={(e) => setNewGoal({...newGoal, target: e.target.value})}
-/>
-{formErrors.target && <p className="mt-1 text-sm text-red-500">{formErrors.target}</p>}
-</div>
-<div>
-<label className="block text-sm font-medium text-gray-300 mb-1">Target Date</label>
-<input
-type="date"
-className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
-value={newGoal.completion}
-onChange={(e) => setNewGoal({...newGoal, completion: e.target.value})}
-/>
-{formErrors.completion && <p className="mt-1 text-sm text-red-500">{formErrors.completion}</p>}
-</div>
-<div>
-<label className="block text-sm font-medium text-gray-300 mb-1">Monthly Contribution (₹)</label>
-<input
-type="number"
-className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
-value={newGoal.monthly}
-onChange={(e) => setNewGoal({...newGoal, monthly: e.target.value})}
-/>
-{formErrors.monthly && <p className="mt-1 text-sm text-red-500">{formErrors.monthly}</p>}
-</div>
-<div>
-<label className="block text-sm font-medium text-gray-300 mb-1">Goal Type</label>
-<select
-className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-blue-500"
-value={newGoal.type}
-onChange={(e) => setNewGoal({...newGoal, type: e.target.value})}
->
-<option value="home">Home Purchase</option>
-<option value="retirement">Retirement</option>
-<option value="emergency">Emergency Fund</option>
-<option value="travel">Travel</option>
-<option value="education">Education</option>
-</select>
-</div>
-<button
-className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors !rounded-button whitespace-nowrap"
-onClick={handleSubmit}
->
-Create Goal
-</button>
-</div>
-</div>
-</div>
-)}
-</div>
-);
-};
-export default App
+
+export default App;  

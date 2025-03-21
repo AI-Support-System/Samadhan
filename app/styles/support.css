@@ -97,7 +97,7 @@
     justify-content: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    border-radius: 8px;
+    border-radius: 8px; 
     background-color: var(--darker-bg);
     position: relative;
     animation: glow 4s infinite;
