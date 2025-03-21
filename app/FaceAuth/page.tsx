@@ -399,12 +399,12 @@ const FaceAuth: React.FC = () => {
               ref={fileInputRef}
               onChange={handleImageUpload}
             />
-            <img
+            {/* <img
               id="uploadPreview"
               className="hidden"
               alt="Preview"
               ref={previewImageRef}
-            />
+            /> */}
             <button
               onClick={registerUser}
               disabled={isRegistering || !isModelLoaded || !username.trim()}

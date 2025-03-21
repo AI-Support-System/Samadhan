@@ -7,7 +7,7 @@ import { Mic, MicOff, Square, RotateCcw, Send } from 'lucide-react';
 
 export default function AudioSupportPage() {
   const router = useRouter();
-  
+   
   // Audio recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
